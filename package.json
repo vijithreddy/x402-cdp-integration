@@ -4,6 +4,7 @@
   "description": "TypeScript Express server with CLI client",
   "main": "dist/server/index.js",
   "scripts": {
+    "setup": "ts-node setup.ts",
     "build": "tsc",
     "build:server": "tsc --project src/server",
     "build:client": "tsc --project src/client",
@@ -31,11 +32,14 @@
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.12.0",
+    "@coinbase/x402": "^0.3.8",
     "axios": "^1.6.0",
     "commander": "^11.0.0",
     "dotenv": "^16.3.0",
     "express": "^4.18.0",
     "readline": "^1.3.0",
-    "viem": "^2.30.6"
+    "viem": "^2.30.6",
+    "x402-axios": "^0.3.3",
+    "x402-express": "^0.3.4"
   }
 }

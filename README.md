@@ -1,104 +1,224 @@
-# TypeScript Server & CLI Project
+# X402 Payment System with CDP SDK Integration
 
-A TypeScript project with an Express server and CLI client.
+A complete payment system demonstrating X402 micropayments using Coinbase Developer Platform (CDP) SDK for wallet management and viem for blockchain interactions.
 
-## Project Structure
+## 🌟 Features
 
+- **X402 Micropayments**: Automated payment flow for protected content
+- **CDP SDK Integration**: Secure server-side key management 
+- **Type-safe Adapter**: Bridges CDP server-side signing with viem client-side interface
+- **Interactive CLI**: User-friendly command-line interface for testing
+- **Smart Caching**: Optimized balance caching for better performance
+- **Base Sepolia Testnet**: Safe testing environment with faucet funding
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+1. **CDP Account**: Sign up at [Coinbase Developer Platform](https://www.coinbase.com/cloud)
+2. **Node.js**: Version 18+ required
+3. **API Keys**: Get your CDP API credentials
+
+### 1. Setup Environment
+
+Create a `.env` file with your CDP credentials:
+
+```bash
+CDP_API_KEY_ID=your_api_key_id_here
+CDP_API_KEY_SECRET=your_private_key_content_here  
+CDP_WALLET_SECRET=your_wallet_secret_here
 ```
-├── package.json                 # Root package.json with shared dependencies
-├── tsconfig.json               # Root TypeScript configuration
-├── src/
-│   ├── server/
-│   │   ├── index.ts            # Express server entry point
-│   │   ├── routes/             # API routes
-│   │   └── middleware/         # Custom middleware
-│   ├── client/
-│   │   ├── index.ts            # CLI entry point
-│   │   └── commands/           # CLI commands
-│   └── shared/
-│       ├── types/              # Shared types/interfaces
-│       └── utils/              # Shared utilities
-├── dist/                       # Compiled code
-└── scripts/                    # Build and utility scripts
-```
 
-## Setup
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Development
+### 3. Automated Setup (Recommended)
+
+Run the setup script to create both client and server wallets automatically:
 
 ```bash
-# Run server in development mode
+npm run setup
+```
+
+This will:
+- ✅ Create a client wallet (for making payments)
+- ✅ Create a server wallet (for receiving payments)  
+- ✅ Fund the client wallet with 5 USDC from testnet faucet
+- ✅ Configure the server to use the new server wallet
+- ✅ Save wallet data for both wallets
+
+### 4. Start Testing
+
+Start the server:
+```bash
 npm run dev:server
+```
 
-# Run client in development mode
+In another terminal, start the client:
+```bash
 npm run dev:client
-
-# Run both concurrently
-npm run dev
 ```
 
-## Build
+## 🎮 CLI Commands
 
+Once the client is running, use these commands:
+
+| Command | Description |
+|---------|-------------|
+| `balance` | Check current USDC balance |
+| `fund` | Add more USDC to wallet (faucet) |
+| `test` | Test X402 payment flow |
+| `info` | Show wallet information |
+| `refresh` | Force refresh balance from blockchain |
+| `help` | Show all available commands |
+| `exit` / `q` | Quit the CLI |
+
+## 🔧 Manual Setup (Alternative)
+
+If you prefer manual setup or the automated setup fails:
+
+1. **Create Client Wallet**: 
+   ```bash
+   npm run dev:client
+   # Follow prompts to create wallet and fund it
+   ```
+
+2. **Create Server Wallet**: 
+   - Temporarily rename `wallet-data.json` 
+   - Run client again to create a new wallet
+   - Save as `server-wallet-data.json`
+   - Restore original client wallet data
+
+3. **Configure Server**: Update `src/server/index.ts` with your server wallet address in the `payTo` field
+
+## 🏗️ Architecture
+
+### Payment Flow
+```
+Client Request → 402 Payment Required → X402 Facilitator → Payment Verification → Content Delivered
+```
+
+### Key Components
+
+- **WalletManager**: Manages CDP wallets with smart caching
+- **CDP-Viem Adapter**: Bridges CDP server-side signing with viem interface  
+- **X402 Middleware**: Handles payment authorization and verification
+- **Express Server**: Serves protected content at `/protected` endpoint
+- **Interactive CLI**: User-friendly interface for testing payments
+
+### File Structure
+```
+src/
+├── client/           # Interactive CLI client
+├── server/           # Express server with X402 middleware
+├── shared/
+│   ├── cdp-viem-adapter.ts    # CDP-to-viem bridge
+│   └── utils/walletManager.ts # Wallet management with caching
+setup.ts              # Automated wallet setup script
+```
+
+## 💳 X402 Payment Details
+
+- **Cost**: 0.01 USDC per request to `/protected`
+- **Network**: Base Sepolia testnet
+- **Facilitator**: https://x402.org/facilitator
+- **Payment Method**: EIP-712 signed authorization
+- **Currency**: USDC (USD Coin)
+
+## 🔍 Example Payment Flow
+
+1. **Client Request**: `GET /protected`
+2. **Server Response**: `402 Payment Required` with payment details
+3. **Client Authorization**: Signs EIP-712 payment data using CDP
+4. **Payment Processing**: X402 facilitator validates and executes
+5. **Content Delivery**: Server delivers protected content
+6. **Balance Update**: Client balance decreases by 0.01 USDC
+
+## 🛠️ Development
+
+### Build Commands
 ```bash
-# Build everything
+npm run build         # Build both server and client
+npm run build:server  # Build server only  
+npm run build:client  # Build client only
+npm run clean         # Remove build artifacts
+```
+
+### Production Deployment
+```bash
 npm run build
-
-# Build server only
-npm run build:server
-
-# Build client only
-npm run build:client
+npm run start:server  # Start production server
+npm run start:client # Start production client
 ```
 
-## Production
+## 🐛 Troubleshooting
 
+### Common Issues
+
+**❌ "Missing environment variables"**
+- Ensure all CDP credentials are set in `.env` file
+- Check that variable names match exactly
+
+**❌ "Failed to create wallet"**  
+- Verify CDP API keys are valid and active
+- Check internet connectivity
+- Ensure CDP account has proper permissions
+
+**❌ "Balance not updating"**
+- Use `refresh` command to force cache invalidation
+- Check if transactions are confirmed on blockchain
+- Verify network connectivity to Base Sepolia
+
+**❌ "X402 payment failed"**
+- Ensure sufficient USDC balance (> 0.01)
+- Check server is running and accessible
+- Verify facilitator service is available
+
+### Debug Mode
+Enable verbose logging by setting:
 ```bash
-# Start server
-npm run start:server
-
-# Run client
-npm run start:client
+DEBUG=true npm run dev:client
+DEBUG=true npm run dev:server
 ```
 
-## Path Aliases
+## 📝 Technical Details
 
-- `@shared/*` → `src/shared/*`
-- `@server/*` → `src/server/*`
-- `@client/*` → `src/client/*`
+### CDP Integration
+- Uses CDP SDK v1.12.0 for server-side key management
+- Implements custom adapter for viem compatibility
+- Handles EIP-712 signing through CDP's `signTypedData` method
 
-## CDP Wallet Management
+### Type Safety
+- Full TypeScript implementation with strict typing
+- Custom interfaces for CDP responses and wallet data
+- Type-safe error handling and validation
 
-### Setup Environment Variables
+### Security
+- Private keys managed server-side by CDP
+- No sensitive data stored in client code
+- Secure payment authorization through X402 protocol
 
-Create a `.env` file with your Coinbase Developer Platform credentials:
+## 🤝 Contributing
 
-```bash
-CDP_API_KEY_ID=your-api-key-id
-CDP_API_KEY_SECRET=your-api-key-secret
-CDP_WALLET_SECRET=your-wallet-secret
-```
+Contributions welcome! Please:
 
-### CLI Commands
+1. Fork the repository
+2. Create a feature branch  
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-```bash
-# Create or get existing EVM wallet
-npm run dev:client wallet
+## 📄 License
 
-# Display wallet information
-npm run dev:client info
+MIT License - see LICENSE file for details
 
-# Show available commands
-npm run dev:client --help
-```
+## 🆘 Support
 
-### Wallet Features
-
-- **Automatic Creation**: Creates a new EVM wallet if none exists
-- **Persistence**: Saves wallet data locally for reuse (wallet-data.json)
-- **Secure**: Wallet data file is git-ignored for security
-- **Multi-Address Support**: Supports multiple addresses per wallet
-- **Default Address**: Automatically assigns a default address for transactions 
+For issues or questions:
+- Check the troubleshooting section above
+- Review CDP SDK documentation
+- Open an issue on GitHub
+- Join the X402 community discussions 

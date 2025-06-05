@@ -377,4 +377,26 @@ export class WalletManager {
   public getCdpClient(): CdpClient {
     return this.cdp;
   }
+
+  /**
+   * Get account for X402 viem integration
+   * Returns both the CDP account and client for the adapter
+   * 
+   * @returns Object with CDP account and client for adapter
+   */
+  public async getAccountForX402(): Promise<{ account: { address: string; name: string }; client: CdpClient }> {
+    const account = await this.ensureWalletLoaded();
+    return {
+      account,
+      client: this.cdp
+    };
+  }
+
+  /**
+   * Public method to invalidate cache - useful after external transactions
+   * like X402 payments that change balance outside our control
+   */
+  public invalidateBalanceCache(): void {
+    this.invalidateCache();
+  }
 } 
