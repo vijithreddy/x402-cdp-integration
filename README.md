@@ -2,6 +2,30 @@
 
 A complete payment system demonstrating X402 micropayments using Coinbase Developer Platform (CDP) SDK for wallet management and viem for blockchain interactions.
 
+## 🚀 **60-Second Quickstart**
+
+```bash
+# 1. Clone and install
+git clone <your-repo-url>
+cd X402-CDP-Payment-System
+npm install
+
+# 2. Add your CDP credentials to .env
+cp .env.example .env
+# Edit .env with your CDP API keys
+
+# 3. One-command setup (creates wallets + funds + configures)
+npm run setup
+
+# 4. Test it!
+npm run dev:server  # Terminal 1
+npm run dev:client  # Terminal 2, then type "test"
+```
+
+**That's it! Your X402 payment system is running with fresh wallets.**
+
+---
+
 ## 🌟 Features
 
 - **X402 Micropayments**: Automated payment flow for protected content
@@ -50,6 +74,8 @@ This will:
 - ✅ Configure the server to use the new server wallet
 - ✅ Save wallet data for both wallets
 
+> **🔒 Security Note:** This repository does not include wallet data files. Each user must create their own `.env` file with CDP credentials and run `npm run setup` to generate fresh wallets. Never commit wallet files to version control.
+
 ### 4. Start Testing
 
 Start the server:
@@ -92,7 +118,7 @@ If you prefer manual setup or the automated setup fails:
    - Save as `server-wallet-data.json`
    - Restore original client wallet data
 
-3. **Configure Server**: Update `src/server/index.ts` with your server wallet address in the `payTo` field
+3. **Configure Server**: The server automatically loads wallet addresses from `server-wallet-data.json` (no manual configuration needed!)
 
 ## 🏗️ Architecture
 
@@ -201,24 +227,3 @@ DEBUG=true npm run dev:server
 - No sensitive data stored in client code
 - Secure payment authorization through X402 protocol
 
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch  
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🆘 Support
-
-For issues or questions:
-- Check the troubleshooting section above
-- Review CDP SDK documentation
-- Open an issue on GitHub
-- Join the X402 community discussions 
