@@ -40,7 +40,7 @@ npm run dev:client  # Terminal 2, then type "test"
 ### Prerequisites
 
 1. **CDP Account**: Sign up at [Coinbase Developer Platform](https://www.coinbase.com/cloud)
-2. **Node.js**: Version 18+ required
+2. **Node.js**: Version 23+ required
 3. **API Keys**: Get your CDP API credentials
 
 ### 1. Setup Environment
