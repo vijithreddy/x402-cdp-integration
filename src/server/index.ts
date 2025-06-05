@@ -4,6 +4,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { paymentMiddleware } from 'x402-express';
+import { facilitator } from '@coinbase/x402';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -96,10 +97,8 @@ app.use(paymentMiddleware(
     }
   },
   
-  // Facilitator configuration
-  {
-    url: 'https://x402.org/facilitator'
-  }
+  // Use official Coinbase facilitator instead of broken testnet one
+  facilitator
 ));
 
 // Protected endpoint that requires payment

@@ -25,7 +25,7 @@ import dotenv from 'dotenv';
 import { WalletManager } from '../shared/utils/walletManager';
 import { WalletConfig } from '../shared/types/wallet';
 import axios from 'axios';
-import { withPaymentInterceptor } from 'x402-axios';
+import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
 import { createWalletClient, http } from 'viem';
 import { createViemAccountFromCDP } from '../shared/cdp-viem-adapter';
 import { baseSepolia } from 'viem/chains';
@@ -341,13 +341,14 @@ class CDPWalletCLI {
         console.log('🔍 Has signTypedData?', typeof viemAccount.signTypedData);
         console.log(`🔑 Using account: ${viemAccount.address}`);
         
-        // Create X402-enabled axios client
+        // Create X402-enabled axios client with facilitator configuration
         console.log('🔄 Creating withPaymentInterceptor...');
         const api = withPaymentInterceptor(
           axios.create({
             baseURL: 'http://localhost:3000',
+            timeout: 30000
           }),
-          viemAccount,
+          viemAccount
         );
         console.log('✅ Payment interceptor created successfully');
         
@@ -359,16 +360,25 @@ class CDPWalletCLI {
         console.log('✅ Success! Accessed protected content:');
         console.log(JSON.stringify(response.data, null, 2));
         
-        // Check if payment was made (look for payment response header)
-        if (response.headers['x-payment-response']) {
+        // Check for payment response header (as per X402 docs)
+        const xPaymentResponse = response.headers['x-payment-response'];
+        if (xPaymentResponse) {
           console.log('💳 Payment was automatically processed by X402 facilitator!');
-          console.log('📋 Payment details:', response.headers['x-payment-response']);
+          
+          try {
+            const paymentResponse = decodeXPaymentResponse(xPaymentResponse);
+            console.log('📋 Decoded payment details:', JSON.stringify(paymentResponse, null, 2));
+          } catch (decodeError) {
+            console.log('📋 Raw payment response:', xPaymentResponse);
+          }
           
           // Refresh balance to show payment deduction
           console.log('🔄 Refreshing balance after payment...');
           this.walletManager.invalidateBalanceCache();
           const newBalance = await this.walletManager.getUSDCBalance();
           console.log(`💰 Updated balance: ${newBalance} USDC`);
+        } else {
+          console.log('ℹ️ No payment was required (or payment response header missing)');
         }
         
       } catch (conversionError: unknown) {
@@ -387,20 +397,20 @@ class CDPWalletCLI {
         
         console.error('❌ X402 payment failed:', error.message || String(conversionError));
         
-        // Check if this is a 402 response from facilitator
+        // Handle errors as per X402 documentation
+        if (error.response?.data?.error) {
+          console.log('⚠️ X402 Error:', error.response.data.error);
+        }
+        
+        // Check if this is still a 402 response (payment not processed)
         if (error.status === 402 || error.response?.status === 402) {
-          console.log('🚨 Facilitator rejected the payment authorization');
+          console.log('🚨 Payment was not processed successfully');
           console.log('🔍 Response status:', error.response?.status);
           console.log('🔍 Response data:', JSON.stringify(error.response?.data, null, 2));
           
-          // Check facilitator-specific error details
-          if (error.response?.data?.error) {
-            console.log('⚠️ Facilitator error message:', error.response.data.error);
-          }
-          
-          // Check if there are any "accepts" alternatives
+          // Check if there are payment options available
           if (error.response?.data?.accepts) {
-            console.log('🔄 Facilitator accepts these payment types:', error.response.data.accepts);
+            console.log('🔄 Available payment options:', error.response.data.accepts);
           }
         } else {
           console.log('🔍 Full error details:', JSON.stringify(conversionError, null, 2));
