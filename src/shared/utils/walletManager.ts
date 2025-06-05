@@ -37,7 +37,6 @@ export class WalletManager {
   
   // Smart caching system for performance optimization
   private cachedBalance: number | null = null;          // Cached USDC balance
-  private cachedWalletData: WalletData | null = null;   // Cached wallet metadata
   private lastBalanceUpdate: Date | null = null;        // Timestamp of last balance fetch
   private isCacheValid: boolean = false;                // Cache validity flag
 
@@ -138,70 +137,81 @@ export class WalletManager {
 
   /**
    * Load wallet fresh from persistent storage or create new one
-   * Handles the complete wallet lifecycle: load existing → create new → save state
+   * Reads saved account name from wallet data for consistency
    */
   private async loadWalletFresh(): Promise<any> {
     if (this.account && this.isCacheValid) {
       return this.account;
     }
 
-    // First, check if we have a saved account locally
+    // Check if we have saved wallet data with account name
     const existingWalletData = this.loadWalletData();
+    let accountName = 'CDP-CLI-Account';
     
-    if (existingWalletData && existingWalletData.id) {
-      console.log('🔄 Found existing wallet data, reusing account...');
-      console.log(`✅ Using existing EVM account: ${existingWalletData.id}`);
-      
-      // Create account object for consistency
-      this.account = {
-        address: existingWalletData.defaultAddress,
-        name: 'CDP-CLI-Account-Existing'
-      };
-      
-      this.isCacheValid = true;
-      return this.account;
+    if (existingWalletData?.accounts?.[0]?.name) {
+      accountName = existingWalletData.accounts[0].name;
+      console.log(`🔄 Using saved account name: ${accountName}`);
     }
 
+    // Use getOrCreateAccount with the correct name
     try {
-      // Try to create a new account
-      console.log('🔄 Creating new EVM account...');
+      console.log('🔄 Getting or creating EVM account...');
       
-      this.account = await this.cdp.evm.createAccount({
-        name: 'CDP-CLI-Account',
+      this.account = await this.cdp.evm.getOrCreateAccount({
+        name: accountName,
       });
 
-      console.log(`✅ New EVM account created: ${this.account.address}`);
+      console.log(`✅ EVM account ready: ${this.account.address}`);
+
+      // Save/update account data locally
+      const walletData: WalletData = {
+        id: this.account.address,
+        seed: '', // CDP manages keys
+        addresses: [this.account.address],
+        defaultAddress: this.account.address,
+        accounts: [{
+          address: this.account.address,
+          name: this.account.name || accountName
+        }]
+      };
+
+      this.saveWalletData(walletData);
+      this.isCacheValid = true;
+
+      return this.account;
 
     } catch (error: any) {
-      // If account already exists (409 error), create with unique name
+      // If account name conflicts, create with unique name
       if (error.statusCode === 409 && error.errorType === 'already_exists') {
-        console.log('🔄 Account name already exists, creating with unique name...');
+        console.log('🔄 Account name conflict, creating with unique name...');
         
         const uniqueName = `CDP-CLI-Account-${Date.now()}`;
-        this.account = await this.cdp.evm.createAccount({
+        this.account = await this.cdp.evm.getOrCreateAccount({
           name: uniqueName,
         });
         
         console.log(`✅ Created account with unique name: ${this.account.address}`);
+
+        // Save new account data
+        const walletData: WalletData = {
+          id: this.account.address,
+          seed: '',
+          addresses: [this.account.address],
+          defaultAddress: this.account.address,
+          accounts: [{
+            address: this.account.address,
+            name: uniqueName
+          }]
+        };
+
+        this.saveWalletData(walletData);
+        this.isCacheValid = true;
+        return this.account;
       } else {
-        console.error('❌ Failed to create account:', error);
+        console.error('❌ Failed to get or create account:', error);
         throw error;
       }
     }
-
-    // Save account data locally for future reuse
-    const walletData: WalletData = {
-      id: this.account.address,
-      seed: '', // CDP manages keys
-      addresses: [this.account.address],
-      defaultAddress: this.account.address,
-    };
-
-    this.saveWalletData(walletData);
-    this.isCacheValid = true;
-    console.log(`✅ EVM account ready: ${this.account.address}`);
-
-    return this.account;
   }
 
   /**
@@ -345,27 +355,22 @@ export class WalletManager {
 
 
   /**
-   * Get wallet information (uses cache when possible)
+   * Get wallet information
    */
   public async getWalletInfo(): Promise<WalletData | null> {
-    // Use cached wallet data if available
-    if (this.cachedWalletData) {
-      return this.cachedWalletData;
-    }
-
     const account = await this.ensureWalletLoaded();
-    
     if (!account) return null;
 
-    // Cache wallet data
-    this.cachedWalletData = {
+    return {
       id: account.address,
       seed: '', // CDP manages private keys
       addresses: [account.address],
       defaultAddress: account.address,
+      accounts: [{
+        address: account.address,
+        name: account.name || 'CDP-CLI-Account'
+      }]
     };
-
-    return this.cachedWalletData;
   }
 
   /**
@@ -381,8 +386,6 @@ export class WalletManager {
   /**
    * Get account for X402 viem integration
    * Returns both the CDP account and client for the adapter
-   * 
-   * @returns Object with CDP account and client for adapter
    */
   public async getAccountForX402(): Promise<{ account: { address: string; name: string }; client: CdpClient }> {
     const account = await this.ensureWalletLoaded();
@@ -393,8 +396,7 @@ export class WalletManager {
   }
 
   /**
-   * Public method to invalidate cache - useful after external transactions
-   * like X402 payments that change balance outside our control
+   * Invalidate balance cache - useful after external transactions
    */
   public invalidateBalanceCache(): void {
     this.invalidateCache();

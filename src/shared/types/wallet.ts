@@ -3,6 +3,10 @@ export interface WalletData {
   seed: string;
   addresses: string[];
   defaultAddress?: string;
+  accounts?: Array<{
+    address: string;
+    name: string;
+  }>;
 }
 
 export interface WalletConfig {
