@@ -13,6 +13,7 @@
  */
 
 import { WalletManager } from './src/shared/utils/walletManager';
+import { CdpClient } from '@coinbase/cdp-sdk';
 import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import dotenv from 'dotenv';
@@ -88,10 +89,63 @@ class X402Setup {
     }
   }
 
+    /**
+   * Create server wallet directly using CDP client (bypasses singleton)
+   */
+  private async createServerWallet(): Promise<{ address: string; balance: number }> {
+    console.log(`🔄 Creating Server wallet...`);
+    
+    try {
+      const config = {
+        apiKeyId: process.env.CDP_API_KEY_ID!,
+        apiKeySecret: process.env.CDP_API_KEY_SECRET!,
+        walletSecret: process.env.CDP_WALLET_SECRET!,
+      };
+
+      // Create a direct CDP client (not using WalletManager singleton)
+      const cdp = new CdpClient({
+        apiKeyId: config.apiKeyId,
+        apiKeySecret: config.apiKeySecret,
+        walletSecret: config.walletSecret,
+      });
+
+      // Create a new account with unique name
+      const uniqueName = `CDP-Server-Account-${Date.now()}`;
+      const account = await cdp.evm.createAccount({
+        name: uniqueName,
+      });
+
+      console.log(`   ✅ Server account created: ${account.address}`);
+
+      // Save server wallet data
+      const walletData = {
+        id: account.address,
+        defaultAddress: account.address,
+        addresses: [account.address],
+        accounts: [{
+          address: account.address,
+          name: uniqueName
+        }]
+      };
+
+      const filepath = join(process.cwd(), 'server-wallet-data.json');
+      writeFileSync(filepath, JSON.stringify(walletData, null, 2));
+      console.log(`   ✅ Server wallet data saved to server-wallet-data.json`);
+
+      // For server wallet, balance will be 0 initially (server receives payments)
+      console.log(`   💰 Server balance: 0 USDC (payment receiver)`);
+
+      return { address: account.address, balance: 0 };
+    } catch (error) {
+      console.error(`❌ Failed to create Server wallet:`, error);
+      throw error;
+    }
+  }
+
   /**
    * Fund the client wallet
    */
-     private async fundClientWallet(): Promise<boolean> {
+  private async fundClientWallet(): Promise<boolean> {
      console.log('🔄 Funding client wallet...');
      
      try {
@@ -133,17 +187,22 @@ class X402Setup {
       if (existsSync(serverPath)) {
         let serverContent = readFileSync(serverPath, 'utf-8');
         
-        // Update the payTo address in the server configuration
-        // Look for the paymentMiddleware configuration
-        const payToRegex = /payTo:\s*['"`]0x[a-fA-F0-9]{40}['"`]/;
-        const newPayTo = `payTo: '${serverAddress}'`;
-        
-        if (payToRegex.test(serverContent)) {
-          serverContent = serverContent.replace(payToRegex, newPayTo);
-          writeFileSync(serverPath, serverContent);
-          console.log(`   ✅ Server configured to receive payments at: ${serverAddress}`);
+                // Check if server uses dynamic wallet loading (preferred)
+        if (serverContent.includes('serverWallet.address')) {
+          console.log(`   ✅ Server uses dynamic wallet loading - no update needed`);
         } else {
-          console.log(`   ⚠️ Could not auto-update server config. Manually set payTo: '${serverAddress}'`);
+          // Legacy: Update the payTo address in the server configuration
+          // Look for the paymentMiddleware configuration
+          const payToRegex = /payTo:\s*['"`]0x[a-fA-F0-9]{40}['"`]/;
+          const newPayTo = `payTo: '${serverAddress}'`;
+          
+          if (payToRegex.test(serverContent)) {
+            serverContent = serverContent.replace(payToRegex, newPayTo);
+            writeFileSync(serverPath, serverContent);
+            console.log(`   ✅ Server configured to receive payments at: ${serverAddress}`);
+          } else {
+            console.log(`   ⚠️ Could not auto-update server config. Manually set payTo: '${serverAddress}'`);
+          }
         }
       } else {
         console.log(`   ⚠️ Server file not found. Make sure to configure payTo: '${serverAddress}'`);
@@ -166,31 +225,9 @@ class X402Setup {
       console.log('📱 Step 1: Creating Client Wallet');
       const clientWallet = await this.createWallet('Client', 'wallet-data.json');
 
-      // Step 2: Create server wallet (but use a fresh WalletManager to create a new one)
+      // Step 2: Create server wallet (force creation of a new account)
       console.log('\n🖥️  Step 2: Creating Server Wallet');
-      
-      // For server wallet, we need to create a truly separate wallet
-      // We'll temporarily rename existing wallet data if it exists
-      const existingWalletPath = join(process.cwd(), 'wallet-data.json');
-      const tempWalletPath = join(process.cwd(), 'wallet-data-temp.json');
-      let hadExistingWallet = false;
-      
-      if (existsSync(existingWalletPath)) {
-        // Move existing wallet temporarily
-        const existingData = readFileSync(existingWalletPath, 'utf-8');
-        writeFileSync(tempWalletPath, existingData);
-        writeFileSync(existingWalletPath, '{}'); // Clear for new wallet creation
-        hadExistingWallet = true;
-      }
-
-      const serverWallet = await this.createWallet('Server', 'server-wallet-data.json');
-
-      // Restore client wallet data
-      if (hadExistingWallet) {
-        const tempData = readFileSync(tempWalletPath, 'utf-8');
-        writeFileSync(existingWalletPath, tempData);
-        writeFileSync(tempWalletPath, ''); // Clean up temp file
-      }
+      const serverWallet = await this.createServerWallet();
 
       // Step 3: Fund client wallet
       console.log('\n💰 Step 3: Funding Client Wallet');
