@@ -6,8 +6,8 @@ A complete payment system demonstrating X402 micropayments using Coinbase Develo
 
 ```bash
 # 1. Clone and install
-git clone <your-repo-url>
-cd X402-CDP-Payment-System
+git clone git@github.com:vijithreddy/x402-cdp-integration.git
+cd x402-cdp-integration
 npm install
 
 # 2. Add your CDP credentials to .env
