@@ -67,6 +67,56 @@ const clientWallet = loadClientWallet();
 // Middleware for parsing JSON
 app.use(express.json());
 
+// Request logging middleware - shows all incoming requests
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n📥 [${timestamp}] ${req.method} ${req.url}`);
+  console.log(`🔍 Headers:`, {
+    'user-agent': req.headers['user-agent']?.slice(0, 50) + '...',
+    'content-type': req.headers['content-type'],
+    'x-payment': req.headers['x-payment'] ? '✅ Payment header present' : '❌ No payment header',
+    'x-wallet-address': req.headers['x-wallet-address'] || 'Not set'
+  });
+  
+  // Log request body for payment-related requests
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📋 Body:`, req.body);
+  }
+  
+  next();
+});
+
+// Response logging middleware - shows what we're sending back
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  const originalJson = res.json;
+  
+  res.send = function(data) {
+    console.log(`📤 [${new Date().toISOString()}] ${req.method} ${req.url} → ${res.statusCode}`);
+    if (res.statusCode === 402) {
+      console.log(`💳 Sending 402 Payment Required for ${req.url}`);
+      console.log(`🎯 Payment details will be in response body`);
+    } else if (res.statusCode === 200 && req.url === '/protected') {
+      console.log(`✅ Payment verified! Delivering protected content`);
+    }
+    return originalSend.call(this, data);
+  };
+  
+  res.json = function(data) {
+    console.log(`📤 [${new Date().toISOString()}] ${req.method} ${req.url} → ${res.statusCode}`);
+    if (res.statusCode === 402) {
+      console.log(`💳 Sending 402 Payment Required for ${req.url}`);
+      console.log(`🎯 Payment options:`, data.accepts?.map((a: any) => `${a.price || a.maxAmountRequired} ${a.extra?.name || 'tokens'} on ${a.network}`));
+    } else if (res.statusCode === 200 && req.url === '/protected') {
+      console.log(`✅ Payment verified! Delivering protected content`);
+      console.log(`👤 User address: ${req.headers['x-wallet-address'] || 'unknown'}`);
+    }
+    return originalJson.call(this, data);
+  };
+  
+  next();
+});
+
 // Basic health check endpoint (free)
 app.get('/health', (req, res) => {
   res.json({ 
@@ -136,11 +186,20 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 X402 Server running on http://localhost:${PORT}`);
+  console.log('\n🚀====================================🚀');
+  console.log('🚀         X402 SERVER READY         🚀');
+  console.log('🚀====================================🚀');
+  console.log(`\n📍 Server URL: http://localhost:${PORT}`);
   console.log(`💰 Protected endpoint: http://localhost:${PORT}/protected`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔑 Server wallet (receives): ${serverWallet.address}`);
-  console.log(`💼 Client wallet (pays): ${clientWallet.address}`);
-  console.log(`💳 Payment required: 0.01 USDC per request`);
-  console.log(`📋 Wallet names: Server="${serverWallet.name}", Client="${clientWallet.name}"`);
+  console.log(`\n🔑 Payment Configuration:`);
+  console.log(`   💳 Price: 0.01 USDC per request`);
+  console.log(`   🌐 Network: Base Sepolia`);
+  console.log(`   🏦 Facilitator: Official Coinbase facilitator`);
+  console.log(`\n💼 Wallet Configuration:`);
+  console.log(`   📥 Server (receives): ${serverWallet.address}`);
+  console.log(`   📤 Client (pays): ${clientWallet.address}`);
+  console.log(`   📋 Names: Server="${serverWallet.name}", Client="${clientWallet.name}"`);
+  console.log(`\n🔄 Waiting for X402 payment requests...`);
+  console.log('📝 All requests and payment flows will be logged below:\n');
 }); 
