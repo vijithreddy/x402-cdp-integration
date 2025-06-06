@@ -106,7 +106,12 @@ app.use((req, res, next) => {
     console.log(`📤 [${new Date().toISOString()}] ${req.method} ${req.url} → ${res.statusCode}`);
     if (res.statusCode === 402) {
       console.log(`💳 Sending 402 Payment Required for ${req.url}`);
-      console.log(`🎯 Payment options:`, data.accepts?.map((a: any) => `${a.price || a.maxAmountRequired} ${a.extra?.name || 'tokens'} on ${a.network}`));
+      console.log(`🎯 Payment options:`, data.accepts?.map((a: any) => {
+        // Convert raw USDC units to decimal format (USDC has 6 decimals)
+        const amount = a.maxAmountRequired ? (parseInt(a.maxAmountRequired) / 1000000).toFixed(2) : a.price;
+        const currency = a.network === 'base-sepolia' ? 'USDC' : (a.extra?.name || 'tokens');
+        return `${amount} ${currency} on ${a.network}`;
+      }));
     } else if (res.statusCode === 200 && req.url === '/protected') {
       console.log(`✅ Payment verified! Delivering protected content`);
       console.log(`👤 User address: ${req.headers['x-wallet-address'] || 'unknown'}`);
@@ -138,7 +143,7 @@ app.use(paymentMiddleware(
   // Route configurations
   {
     '/protected': {
-      price: '$0.01',
+      price: '0.01 USDC',
       network: 'base-sepolia',
       config: {
         description: 'Access to protected AI service endpoint',
