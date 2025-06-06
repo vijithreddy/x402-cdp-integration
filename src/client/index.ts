@@ -93,7 +93,16 @@ class CDPWalletCLI {
   public async start(): Promise<void> {
     console.log('🚀 CDP Wallet Interactive CLI');
     console.log('============================');
-    console.log('Type "help" for available commands, "exit" to quit\n');
+    console.log('📖 Available Commands:');
+    console.log('  balance, bal     - Check USDC balance');
+    console.log('  fund [amount]    - Fund wallet with USDC');
+    console.log('  test, x402       - Test X402 payment (0.01 USDC)');
+    console.log('  info, status     - Show wallet information');
+    console.log('  refresh, reload  - Force refresh from blockchain');
+    console.log('  clear, cls       - Clear the screen');
+    console.log('  help, h          - Show detailed help');
+    console.log('  exit, quit, q    - Exit the CLI');
+    console.log('Type "help" for more details\n');
 
     // Initialize wallet manager
     if (!this.initializeWalletManager()) {
