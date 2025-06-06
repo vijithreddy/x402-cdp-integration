@@ -222,23 +222,45 @@ export class WalletManager {
    * @returns Promise<number> USDC balance as decimal number
    */
   private async fetchBalanceFromBlockchain(): Promise<number> {
-    try {
-      const account = await this.ensureWalletLoaded();
+    const maxRetries = 3;
+    let lastError: any = null;
 
-      // Use the CDP client directly with the address
-      const balances = await this.cdp.evm.listTokenBalances({
-        address: account.address,
-        network: 'base-sepolia',
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const account = await this.ensureWalletLoaded();
 
-      // Find USDC balance
-      let usdcBalance = 0;
-      
-      // The response has a 'balances' property containing the array
-      const balancesObj = balances as any;
-      const tokenBalances = balancesObj.balances || [];
+        if (!account?.address) {
+          throw new Error('Invalid account: missing address');
+        }
 
-      if (Array.isArray(tokenBalances)) {
+        // Validate address format
+        if (!account.address.startsWith('0x') || account.address.length !== 42) {
+          throw new Error(`Invalid Ethereum address format: ${account.address}`);
+        }
+
+        // Use the CDP client directly with the address
+        const balances = await this.cdp.evm.listTokenBalances({
+          address: account.address,
+          network: 'base-sepolia',
+        });
+
+        // Validate response structure
+        if (!balances || typeof balances !== 'object') {
+          throw new Error('Invalid balance response from CDP API');
+        }
+
+        // Find USDC balance
+        let usdcBalance = 0;
+        
+        // The response has a 'balances' property containing the array
+        const balancesObj = balances as any;
+        const tokenBalances = balancesObj.balances || [];
+
+        if (!Array.isArray(tokenBalances)) {
+          console.warn('⚠️ No token balances found or invalid format');
+          return 0;
+        }
+
         // USDC on Base Sepolia contract address (case insensitive)
         const BASE_SEPOLIA_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'.toLowerCase();
         
@@ -254,16 +276,48 @@ export class WalletManager {
           const amountBigInt = usdcItem.amount?.amount || 0n;
           const decimals = Number(usdcItem.amount?.decimals || 6n);
           
-          // Use viem's formatUnits for proper token amount formatting
-          usdcBalance = parseFloat(formatUnits(amountBigInt, decimals));
+          // Validate decimals range
+          if (decimals < 0 || decimals > 18) {
+            console.warn(`⚠️ Unexpected decimals value: ${decimals}, using default 6`);
+            usdcBalance = parseFloat(formatUnits(amountBigInt, 6));
+          } else {
+            // Use viem's formatUnits for proper token amount formatting
+            usdcBalance = parseFloat(formatUnits(amountBigInt, decimals));
+          }
+
+          // Validate result
+          if (isNaN(usdcBalance) || usdcBalance < 0) {
+            console.warn(`⚠️ Invalid balance calculation result: ${usdcBalance}, defaulting to 0`);
+            usdcBalance = 0;
+          }
+        }
+
+        return usdcBalance;
+
+      } catch (error: any) {
+        lastError = error;
+        
+        // Handle specific error types
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          console.warn(`⚠️ Network error (attempt ${attempt}/${maxRetries}): ${error.message}`);
+        } else if (error.statusCode === 429) {
+          console.warn(`⚠️ Rate limited (attempt ${attempt}/${maxRetries}), waiting ${attempt * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        } else if (error.statusCode >= 500) {
+          console.warn(`⚠️ Server error (attempt ${attempt}/${maxRetries}): ${error.message}`);
+        } else {
+          console.error('❌ Failed to fetch balance from blockchain:', error);
+          break; // Don't retry for client errors
+        }
+
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
       }
-
-      return usdcBalance;
-    } catch (error) {
-      console.error('❌ Failed to fetch balance from blockchain:', error);
-      return 0;
     }
+
+    console.error('❌ All attempts to fetch balance failed:', lastError?.message || 'Unknown error');
+    return 0;
   }
 
   /**
@@ -308,9 +362,20 @@ export class WalletManager {
    */
   public async fundWallet(targetAmount: number = 5): Promise<boolean> {
     try {
+      // Validate input
+      if (isNaN(targetAmount) || targetAmount <= 0 || targetAmount > 1000) {
+        console.error('❌ Invalid target amount. Must be between 0 and 1000 USDC');
+        return false;
+      }
+
       const account = await this.ensureWalletLoaded();
       
-      // Check current balance
+      if (!account?.address) {
+        console.error('❌ No valid account found for funding');
+        return false;
+      }
+      
+      // Check current balance with retry logic
       const currentBalance = await this.getUSDCBalance();
       
       if (currentBalance >= targetAmount) {
@@ -319,36 +384,71 @@ export class WalletManager {
       }
 
       const neededAmount = targetAmount - currentBalance;
-      console.log(`🔄 Need ${neededAmount} more USDC. Requesting from faucet...`);
+      console.log(`🔄 Need ${neededAmount.toFixed(2)} more USDC. Requesting from faucet...`);
 
       // Invalidate cache before write operation
       this.invalidateCache();
 
-      // Request USDC from faucet
-      const faucetResponse = await this.cdp.evm.requestFaucet({
-        address: account.address,
-        network: 'base-sepolia',
-        token: 'usdc',
-      });
+      // Request USDC from faucet with timeout
+      const faucetResponse = await Promise.race([
+        this.cdp.evm.requestFaucet({
+          address: account.address,
+          network: 'base-sepolia',
+          token: 'usdc',
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Faucet request timeout after 30 seconds')), 30000)
+        )
+      ]) as any;
+
+      // Validate faucet response
+      if (!faucetResponse?.transactionHash) {
+        console.error('❌ Invalid faucet response: missing transaction hash');
+        return false;
+      }
 
       console.log(`🔄 Faucet request submitted. Transaction hash: ${faucetResponse.transactionHash}`);
       console.log('⏳ Waiting for transaction confirmation...');
 
-      console.log(`✅ Faucet request completed! Transaction: ${faucetResponse.transactionHash}`);
-      console.log('💡 Note: It may take a few minutes for the balance to update.');
+      // Wait for confirmation with timeout
+      try {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Give some time for processing
+        console.log(`✅ Faucet request completed! Transaction: ${faucetResponse.transactionHash}`);
+        console.log('💡 Note: It may take a few minutes for the balance to update.');
+      } catch (confirmError) {
+        console.warn('⚠️ Could not confirm transaction, but it may still be processing');
+      }
       
       // Refresh cache after successful write operation
-      await this.refreshCache();
+      try {
+        await this.refreshCache();
+      } catch (refreshError) {
+        console.warn('⚠️ Could not refresh cache, but funding may have succeeded');
+      }
       
       return true;
 
     } catch (error: any) {
+      // Handle specific error cases
       if (error.message?.includes('already_requested') || error.statusCode === 429) {
         console.log('⚠️ Faucet already used today. Please wait 24 hours or fund manually.');
+        return false;
+      } else if (error.message?.includes('timeout')) {
+        console.error('❌ Faucet request timed out. Please try again or check network connection.');
+        return false;
+      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        console.error('❌ Network connectivity error. Please check your internet connection.');
+        return false;
+      } else if (error.statusCode === 403) {
+        console.error('❌ Access denied. Please check your CDP API credentials.');
+        return false;
+      } else if (error.statusCode >= 500) {
+        console.error('❌ CDP service error. Please try again later.');
+        return false;
       } else {
-        console.error('❌ Failed to fund wallet:', error);
+        console.error('❌ Failed to fund wallet:', error.message || error);
+        return false;
       }
-      return false;
     }
   }
 

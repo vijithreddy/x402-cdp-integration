@@ -9,7 +9,7 @@
  * 3. Funds the client wallet with USDC
  * 4. Configures both wallets for testing
  * 
- * Usage: npm run setup
+ * Usage: npm run setup [--verbose] [--quiet] [--json]
  */
 
 import { WalletManager } from './src/shared/utils/walletManager';
@@ -17,34 +17,44 @@ import { CdpClient } from '@coinbase/cdp-sdk';
 import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import dotenv from 'dotenv';
+import { createLogger, parseLogFlags } from './src/shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 class X402Setup {
+  private logger = createLogger(parseLogFlags());
+
   constructor() {
     // Validate required environment variables
     const requiredEnvVars = ['CDP_API_KEY_ID', 'CDP_API_KEY_SECRET', 'CDP_WALLET_SECRET'];
     const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
     
     if (missing.length > 0) {
-      console.error('❌ Missing required environment variables:');
-      missing.forEach(envVar => console.error(`   - ${envVar}`));
-      console.log('\n💡 Please set these in your .env file:');
-      console.log('   CDP_API_KEY_ID=your_api_key_id');
-      console.log('   CDP_API_KEY_SECRET=your_private_key_content');
-      console.log('   CDP_WALLET_SECRET=your_wallet_secret');
+      this.logger.error('Missing required environment variables', { 
+        missing: missing.map(key => key.replace(/_SECRET$/, '_SECRET (hidden)'))
+      });
+      this.logger.ui('\n💡 Please set these in your .env file:');
+      this.logger.ui('   CDP_API_KEY_ID=your_api_key_id');
+      this.logger.ui('   CDP_API_KEY_SECRET=your_private_key_content');
+      this.logger.ui('   CDP_WALLET_SECRET=your_wallet_secret');
       process.exit(1);
     }
 
-    console.log('✅ Environment variables validated');
+    this.logger.success('Environment variables validated');
+    this.logger.debug('Configuration loaded', { 
+      hasApiKeyId: !!process.env.CDP_API_KEY_ID,
+      hasApiKeySecret: !!process.env.CDP_API_KEY_SECRET,
+      hasWalletSecret: !!process.env.CDP_WALLET_SECRET,
+      // Never log actual key values
+    });
   }
 
   /**
    * Create and setup a wallet using our existing WalletManager
    */
   private async createWallet(name: string, filename: string): Promise<{ address: string; balance: number }> {
-    console.log(`🔄 Creating ${name} wallet...`);
+    this.logger.flow('wallet_create_start', { wallet: name });
     
     try {
       const config = {
@@ -57,7 +67,7 @@ class X402Setup {
       
       // Get or create wallet (this handles initialization internally)
       const account = await walletManager.getOrCreateWallet();
-      console.log(`   ✅ ${name} wallet created/loaded: ${account.address}`);
+      this.logger.success(`${name} wallet created/loaded`, { address: account.address });
 
       // Get wallet info for saving
       const walletInfo = await walletManager.getWalletInfo();
@@ -75,25 +85,25 @@ class X402Setup {
 
         const filepath = join(process.cwd(), filename);
         writeFileSync(filepath, JSON.stringify(walletData, null, 2));
-        console.log(`   ✅ ${name} wallet data saved to ${filename}`);
+        this.logger.debug('Wallet data saved', { filename, addressCount: walletInfo.addresses.length });
       }
 
       // Get balance
       const balance = await walletManager.getUSDCBalance();
-      console.log(`   💰 ${name} balance: ${balance} USDC`);
+      this.logger.flow('wallet_balance_check', { wallet: name, balance: `${balance} USDC` });
 
       return { address: account.address, balance };
-    } catch (error) {
-      console.error(`❌ Failed to create ${name} wallet:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to create ${name} wallet`, error);
       throw error;
     }
   }
 
-    /**
+  /**
    * Create server wallet directly using CDP client (bypasses singleton)
    */
   private async createServerWallet(): Promise<{ address: string; balance: number }> {
-    console.log(`🔄 Creating Server wallet...`);
+    this.logger.flow('server_wallet_create_start', {});
     
     try {
       const config = {
@@ -115,7 +125,7 @@ class X402Setup {
         name: uniqueName,
       });
 
-      console.log(`   ✅ Server account created: ${account.address}`);
+      this.logger.success('Server account created', { address: account.address });
 
       // Save server wallet data
       const walletData = {
@@ -130,14 +140,14 @@ class X402Setup {
 
       const filepath = join(process.cwd(), 'server-wallet-data.json');
       writeFileSync(filepath, JSON.stringify(walletData, null, 2));
-      console.log(`   ✅ Server wallet data saved to server-wallet-data.json`);
+      this.logger.debug('Server wallet data saved', { filename: 'server-wallet-data.json' });
 
       // For server wallet, balance will be 0 initially (server receives payments)
-      console.log(`   💰 Server balance: 0 USDC (payment receiver)`);
+      this.logger.flow('server_wallet_ready', { balance: '0 USDC', role: 'payment receiver' });
 
       return { address: account.address, balance: 0 };
-    } catch (error) {
-      console.error(`❌ Failed to create Server wallet:`, error);
+    } catch (error: any) {
+      this.logger.error('Failed to create Server wallet', error);
       throw error;
     }
   }
@@ -146,7 +156,7 @@ class X402Setup {
    * Fund the client wallet
    */
   private async fundClientWallet(): Promise<boolean> {
-     console.log('🔄 Funding client wallet...');
+     this.logger.flow('wallet_funding_start', { target: '5 USDC' });
      
      try {
        const config = {
@@ -159,18 +169,18 @@ class X402Setup {
       
       const success = await walletManager.fundWallet(5);
       if (success) {
-        console.log('   ✅ Client wallet funding successful!');
+        this.logger.success('Client wallet funding successful');
         
         // Check new balance
         const balance = await walletManager.getUSDCBalance();
-        console.log(`   💰 Client balance after funding: ${balance} USDC`);
+        this.logger.flow('wallet_funding_complete', { balance: `${balance} USDC` });
         return true;
       } else {
-        console.log('   ❌ Client wallet funding failed');
+        this.logger.error('Client wallet funding failed');
         return false;
       }
-    } catch (error) {
-      console.error('   ❌ Funding error:', error);
+    } catch (error: any) {
+      this.logger.error('Funding error', error);
       return false;
     }
   }
@@ -179,7 +189,7 @@ class X402Setup {
    * Update server configuration to use the new server wallet
    */
   private updateServerConfig(serverAddress: string): void {
-    console.log('🔄 Updating server configuration...');
+    this.logger.flow('server_config_update', { address: serverAddress });
     
     try {
       const serverPath = join(process.cwd(), 'src/server/index.ts');
@@ -187,9 +197,9 @@ class X402Setup {
       if (existsSync(serverPath)) {
         let serverContent = readFileSync(serverPath, 'utf-8');
         
-                // Check if server uses dynamic wallet loading (preferred)
+        // Check if server uses dynamic wallet loading (preferred)
         if (serverContent.includes('serverWallet.address')) {
-          console.log(`   ✅ Server uses dynamic wallet loading - no update needed`);
+          this.logger.success('Server uses dynamic wallet loading - no update needed');
         } else {
           // Legacy: Update the payTo address in the server configuration
           // Look for the paymentMiddleware configuration
@@ -199,17 +209,24 @@ class X402Setup {
           if (payToRegex.test(serverContent)) {
             serverContent = serverContent.replace(payToRegex, newPayTo);
             writeFileSync(serverPath, serverContent);
-            console.log(`   ✅ Server configured to receive payments at: ${serverAddress}`);
+            this.logger.success('Server configured to receive payments', { address: serverAddress });
           } else {
-            console.log(`   ⚠️ Could not auto-update server config. Manually set payTo: '${serverAddress}'`);
+            this.logger.warn('Could not auto-update server config', { 
+              manual: `Set payTo: '${serverAddress}'` 
+            });
           }
         }
       } else {
-        console.log(`   ⚠️ Server file not found. Make sure to configure payTo: '${serverAddress}'`);
+        this.logger.warn('Server file not found', { 
+          path: serverPath,
+          manual: `Configure payTo: '${serverAddress}'`
+        });
       }
-    } catch (error) {
-      console.log(`   ⚠️ Could not update server config:`, error);
-      console.log(`   💡 Manually configure server to use: ${serverAddress}`);
+    } catch (error: any) {
+      this.logger.warn('Could not update server config', { 
+        error: error.message,
+        manual: `Manually configure server to use: ${serverAddress}`
+      });
     }
   }
 
@@ -217,57 +234,56 @@ class X402Setup {
    * Main setup process
    */
   public async run(): Promise<void> {
-    console.log('🚀 X402 Wallet Setup Starting...');
-    console.log('====================================\n');
+    this.logger.header('X402 Wallet Setup', 'Initializing wallets and configuration');
 
     try {
       // Step 1: Create client wallet
-      console.log('📱 Step 1: Creating Client Wallet');
+      this.logger.ui('📱 Step 1: Creating Client Wallet');
       const clientWallet = await this.createWallet('Client', 'wallet-data.json');
 
       // Step 2: Create server wallet (force creation of a new account)
-      console.log('\n🖥️  Step 2: Creating Server Wallet');
+      this.logger.ui('\n🖥️  Step 2: Creating Server Wallet');
       const serverWallet = await this.createServerWallet();
 
       // Step 3: Fund client wallet
-      console.log('\n💰 Step 3: Funding Client Wallet');
+      this.logger.ui('\n💰 Step 3: Funding Client Wallet');
       await this.fundClientWallet();
 
       // Step 4: Update server configuration
-      console.log('\n⚙️  Step 4: Updating Server Configuration');
+      this.logger.ui('\n⚙️  Step 4: Updating Server Configuration');
       this.updateServerConfig(serverWallet.address);
 
       // Step 5: Setup summary
-      console.log('\n🎉 Setup Complete!');
-      console.log('==================');
-      console.log(`📱 Client Wallet: ${clientWallet.address}`);
-      console.log(`🖥️  Server Wallet: ${serverWallet.address}`);
-      console.log(`💰 Client Balance: Check with 'npm run dev:client' → 'balance'`);
-      console.log('');
-      console.log('🚀 Ready to test X402 payments!');
-      console.log('');
-      console.log('Next steps:');
-      console.log('1. Start the server: npm run dev:server');
-      console.log('2. Start the client: npm run dev:client');
-      console.log('3. Test balance: type "balance"');
-      console.log('4. Test X402 payment: type "test"');
-      console.log('');
-      console.log('📋 Available commands in client CLI:');
-      console.log('   • balance  - Check USDC balance');
-      console.log('   • fund     - Add more USDC to wallet');
-      console.log('   • test     - Test X402 payment flow');
-      console.log('   • info     - Show wallet information');
-      console.log('   • refresh  - Force refresh balance from blockchain');
-      console.log('   • help     - Show all commands');
-      console.log('   • exit/q   - Quit the CLI');
+      this.logger.ui('\n🎉 Setup Complete!');
+      this.logger.separator();
+      this.logger.ui(`📱 Client Wallet: ${clientWallet.address}`);
+      this.logger.ui(`🖥️  Server Wallet: ${serverWallet.address}`);
+      this.logger.ui(`💰 Client Balance: Check with 'npm run dev:client' → 'balance'`);
+      this.logger.ui('');
+      this.logger.success('Ready to test X402 payments!');
+      this.logger.ui('');
+      this.logger.ui('Next steps:');
+      this.logger.ui('1. Start the server: npm run dev:server');
+      this.logger.ui('2. Start the client: npm run dev:client');
+      this.logger.ui('3. Test balance: type "balance"');
+      this.logger.ui('4. Test X402 payment: type "test"');
+      this.logger.ui('');
+      this.logger.ui('📋 Available commands in client CLI:');
+      this.logger.ui('   • balance  - Check USDC balance');
+      this.logger.ui('   • fund     - Add more USDC to wallet');
+      this.logger.ui('   • test     - Test X402 payment flow');
+      this.logger.ui('   • info     - Show wallet information');
+      this.logger.ui('   • refresh  - Force refresh balance from blockchain');
+      this.logger.ui('   • help     - Show all commands');
+      this.logger.ui('   • exit/q   - Quit the CLI');
 
-    } catch (error) {
-      console.error('\n❌ Setup failed:', error);
-      console.log('\n💡 Troubleshooting:');
-      console.log('1. Check your .env file has correct CDP credentials');
-      console.log('2. Ensure you have internet connectivity');
-      console.log('3. Verify your CDP account has API access enabled');
-      console.log('4. Try running individual steps manually if needed');
+    } catch (error: any) {
+      this.logger.error('Setup failed', error);
+      this.logger.ui('\n💡 Troubleshooting:');
+      this.logger.ui('1. Check your .env file has correct CDP credentials');
+      this.logger.ui('2. Ensure you have internet connectivity');
+      this.logger.ui('3. Verify your CDP account has API access enabled');
+      this.logger.ui('4. Try running individual steps manually if needed');
       process.exit(1);
     }
   }
