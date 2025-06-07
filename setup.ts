@@ -52,6 +52,10 @@ class X402Setup {
 
   /**
    * Create and setup a wallet using our existing WalletManager
+   * 
+   * @param name - Human readable name for the wallet
+   * @param filename - File path to save wallet data
+   * @returns Promise resolving to wallet address and balance information
    */
   private async createWallet(name: string, filename: string): Promise<{ address: string; balance: number }> {
     this.logger.flow('wallet_create_start', { wallet: name });
@@ -101,6 +105,8 @@ class X402Setup {
 
   /**
    * Create server wallet directly using CDP client (bypasses singleton)
+   * 
+   * @returns Promise resolving to server wallet address and balance information
    */
   private async createServerWallet(): Promise<{ address: string; balance: number }> {
     this.logger.flow('server_wallet_create_start', {});
@@ -154,6 +160,8 @@ class X402Setup {
 
   /**
    * Fund the client wallet
+   * 
+   * @returns Promise resolving to true if funding succeeded, false otherwise
    */
   private async fundClientWallet(): Promise<boolean> {
      this.logger.flow('wallet_funding_start', { target: '5 USDC' });
@@ -187,6 +195,8 @@ class X402Setup {
 
   /**
    * Update server configuration to use the new server wallet
+   * 
+   * @param serverAddress - The server wallet address to configure
    */
   private updateServerConfig(serverAddress: string): void {
     this.logger.flow('server_config_update', { address: serverAddress });

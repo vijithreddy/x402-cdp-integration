@@ -61,6 +61,20 @@ export class WalletManager {
 
   /**
    * Save wallet data to local file for persistence
+   * 
+   * Writes wallet configuration to JSON file for session recovery.
+   * Handles errors gracefully to prevent application crashes.
+   * 
+   * @param walletData - Wallet data structure to save
+   * @throws {Error} When file write operations fail (handled gracefully)
+   * @example
+   * ```typescript
+   * this.saveWalletData({
+   *   id: '0x123...',
+   *   addresses: ['0x123...'],
+   *   defaultAddress: '0x123...'
+   * });
+   * ```
    */
   private saveWalletData(walletData: WalletData): void {
     try {
@@ -73,6 +87,19 @@ export class WalletManager {
 
   /**
    * Load wallet data from local file
+   * 
+   * Attempts to read and parse wallet configuration from JSON file.
+   * Returns null if file doesn't exist or parsing fails.
+   * 
+   * @returns {WalletData | null} Parsed wallet data or null if not available
+   * @throws {Error} When file read/parse operations fail (handled gracefully)
+   * @example
+   * ```typescript
+   * const walletData = this.loadWalletData();
+   * if (walletData) {
+   *   console.log(`Loaded wallet: ${walletData.defaultAddress}`);
+   * }
+   * ```
    */
   private loadWalletData(): WalletData | null {
     try {

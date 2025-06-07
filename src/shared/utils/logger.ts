@@ -1,6 +1,39 @@
+/**
+ * Professional Logging System for X402 Payment Applications
+ * 
+ * A Winston-based logging utility designed specifically for X402 payment flows,
+ * providing structured logging with multiple output formats and security-first approach.
+ * 
+ * Features:
+ * - Multiple log levels (error, warn, info, flow, debug, trace)
+ * - Configurable output formats (console, JSON)
+ * - Security-first approach (no sensitive data logging)
+ * - Payment-specific transaction logging
+ * - ANSI color formatting for CLI applications
+ * - Structured flow tracking for debugging
+ * 
+ * @example
+ * ```typescript
+ * import { createLogger } from './logger';
+ * 
+ * const logger = createLogger({ verbose: true });
+ * logger.flow('payment_start', { amount: '0.01 USDC' });
+ * logger.transaction('payment_verified', { 
+ *   from: '0x123...', 
+ *   to: '0x456...', 
+ *   status: 'success' 
+ * });
+ * ```
+ * 
+ * @since 1.0.0
+ */
+
 import winston from 'winston';
 
-// Log levels for different types of information
+/**
+ * Log levels for different types of information
+ * Ordered by severity from highest to lowest
+ */
 export enum LogLevel {
   ERROR = 'error',
   WARN = 'warn', 
@@ -10,7 +43,10 @@ export enum LogLevel {
   TRACE = 'trace'   // Ultra-verbose
 }
 
-// Custom log types for X402 operations
+/**
+ * Custom log types for X402 operations
+ * Used to categorize different kinds of log messages
+ */
 export enum LogType {
   UI = 'UI',           // User interface messages
   FLOW = 'FLOW',       // Payment flow steps
@@ -19,10 +55,17 @@ export enum LogType {
   SYSTEM = 'SYSTEM'    // System operations
 }
 
+/**
+ * Configuration options for logger behavior
+ */
 interface LoggerConfig {
+  /** Base log level (error, warn, info, debug) */
   level: string;
+  /** Enable verbose debugging output */
   verbose: boolean;
+  /** Suppress non-critical output */
   quiet: boolean;
+  /** Output logs in JSON format */
   json: boolean;
 }
 
@@ -39,10 +82,36 @@ const colors = {
   gray: '\x1b[90m'
 };
 
+/**
+ * Professional logging class with security-first approach
+ * 
+ * Provides structured logging for X402 payment applications with multiple
+ * output formats and security considerations to prevent sensitive data exposure.
+ * 
+ * @example
+ * ```typescript
+ * const logger = new ProfessionalLogger({ verbose: true, json: false });
+ * logger.transaction('payment_received', {
+ *   amount: '0.01 USDC',
+ *   from: clientAddress,
+ *   to: serverAddress,
+ *   status: 'success'
+ * });
+ * ```
+ */
 class ProfessionalLogger {
   private winston: winston.Logger;
   private config: LoggerConfig;
 
+  /**
+   * Create a new professional logger instance
+   * 
+   * @param config - Logger configuration options
+   * @param config.level - Base log level (default: 'info')
+   * @param config.verbose - Enable verbose debugging (default: false)
+   * @param config.quiet - Suppress non-critical output (default: false)
+   * @param config.json - Output in JSON format (default: false)
+   */
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
       level: config.level || 'info',
@@ -72,7 +141,20 @@ class ProfessionalLogger {
     });
   }
 
-  // User Interface - Clean, professional status updates
+  /**
+   * Display clean user interface messages
+   * 
+   * Used for status updates and user-facing information that should
+   * always be visible unless in quiet mode.
+   * 
+   * @param message - The message to display
+   * @param details - Optional additional details (shown in verbose mode)
+   * @example
+   * ```typescript
+   * logger.ui('🚀 Server starting on port 3000');
+   * logger.ui('Configuration loaded', { port: 3000, env: 'development' });
+   * ```
+   */
   ui(message: string, details?: any): void {
     if (this.config.quiet) return;
     
@@ -86,7 +168,20 @@ class ProfessionalLogger {
     }
   }
 
-  // Flow - Payment/process steps (structured)
+  /**
+   * Log structured flow events for payment processes
+   * 
+   * Tracks the progression of payment flows and system processes
+   * with structured data for debugging and monitoring.
+   * 
+   * @param action - The action/step being performed
+   * @param details - Structured data about the action
+   * @example
+   * ```typescript
+   * logger.flow('payment_start', { amount: '0.01 USDC', client: clientAddr });
+   * logger.flow('wallet_balance_check', { balance: '5.42 USDC' });
+   * ```
+   */
   flow(action: string, details: any = {}): void {
     if (this.config.quiet) return;
 
@@ -107,7 +202,20 @@ class ProfessionalLogger {
     }
   }
 
-  // Debug - Technical details (verbose only)
+  /**
+   * Log technical debugging information
+   * 
+   * Only shown in verbose mode. Used for detailed technical information
+   * that helps with debugging but isn't needed for normal operation.
+   * 
+   * @param message - Debug message description
+   * @param data - Optional technical data to include
+   * @throws {Error} Never throws - errors are handled gracefully
+   * @example
+   * ```typescript
+   * logger.debug('X402 header decoded', { paymentData: decodedPayment });
+   * ```
+   */
   debug(message: string, data?: any): void {
     if (!this.config.verbose || this.config.quiet) return;
     
@@ -122,7 +230,19 @@ class ProfessionalLogger {
     }
   }
 
-  // Error - Failures with context
+  /**
+   * Log error conditions with context
+   * 
+   * Records errors with full context and stack traces in verbose mode.
+   * Ensures sensitive information is not logged.
+   * 
+   * @param message - Error description
+   * @param error - Error object or message
+   * @example
+   * ```typescript
+   * logger.error('Payment verification failed', new Error('Invalid signature'));
+   * ```
+   */
   error(message: string, error?: any): void {
     if (this.config.json) {
       this.winston.error({ 
@@ -140,7 +260,18 @@ class ProfessionalLogger {
     }
   }
 
-  // Success - Positive outcomes
+  /**
+   * Log successful operations
+   * 
+   * Records positive outcomes and successful completions.
+   * 
+   * @param message - Success message
+   * @param details - Optional success details
+   * @example
+   * ```typescript
+   * logger.success('Wallet funded successfully', { newBalance: '10.00 USDC' });
+   * ```
+   */
   success(message: string, details?: any): void {
     if (this.config.quiet) return;
     
@@ -154,7 +285,18 @@ class ProfessionalLogger {
     }
   }
 
-  // Warning - Important but non-critical
+  /**
+   * Log warning conditions
+   * 
+   * Records important but non-critical issues that should be noted.
+   * 
+   * @param message - Warning message
+   * @param details - Optional warning context
+   * @example
+   * ```typescript
+   * logger.warn('Rate limit approaching', { remaining: 5, resetTime: '30s' });
+   * ```
+   */
   warn(message: string, details?: any): void {
     if (this.config.json) {
       this.winston.warn({ type: 'WARN', message, details });
@@ -167,7 +309,32 @@ class ProfessionalLogger {
     }
   }
 
-  // Transaction - Payment-specific logging
+  /**
+   * Log payment transaction events
+   * 
+   * Specialized logging for X402 payment transactions with structured
+   * data including amounts, addresses, and transaction status.
+   * 
+   * @param action - Transaction action (e.g., 'payment_received', 'payment_sent')
+   * @param details - Transaction details
+   * @param details.amount - Payment amount (e.g., '0.01 USDC')
+   * @param details.from - Sender address
+   * @param details.to - Recipient address
+   * @param details.txHash - Transaction hash
+   * @param details.network - Network name
+   * @param details.duration - Transaction duration in seconds
+   * @param details.status - Transaction status
+   * @example
+   * ```typescript
+   * logger.transaction('payment_verified', {
+   *   amount: '0.01 USDC',
+   *   from: '0x123...',
+   *   to: '0x456...',
+   *   status: 'success',
+   *   duration: 2.3
+   * });
+   * ```
+   */
   transaction(action: string, details: {
     amount?: string;
     from?: string;
@@ -201,7 +368,13 @@ class ProfessionalLogger {
     }
   }
 
-  // Helper methods
+  /**
+   * Format flow details for console output
+   * 
+   * @private
+   * @param details - Flow details object
+   * @returns {string} Formatted details string
+   */
   private formatFlowDetails(details: any): string {
     const parts: string[] = [];
     
@@ -214,17 +387,43 @@ class ProfessionalLogger {
     return parts.join(' | ');
   }
 
+  /**
+   * Shorten Ethereum address for display
+   * 
+   * @private
+   * @param address - Full Ethereum address
+   * @returns {string} Shortened address (e.g., "0x1234...abcd")
+   */
   private shortenAddress(address: string): string {
     if (!address || address.length < 10) return address;
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 
+  /**
+   * Shorten transaction hash for display
+   * 
+   * @private
+   * @param hash - Full transaction hash
+   * @returns {string} Shortened hash (e.g., "0x12345678...abcdef")
+   */
   private shortenHash(hash: string): string {
     if (!hash || hash.length < 10) return hash;
     return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
   }
 
-  // Header formatting for sections
+  /**
+   * Display formatted section header
+   * 
+   * Creates visually distinct section headers for CLI output.
+   * Includes optional subtitle and separator line.
+   * 
+   * @param title - Main header title
+   * @param subtitle - Optional subtitle text
+   * @example
+   * ```typescript
+   * logger.header('X402 Setup', 'Initializing wallets and configuration');
+   * ```
+   */
   header(title: string, subtitle?: string): void {
     if (this.config.quiet || this.config.json) return;
     
@@ -235,13 +434,34 @@ class ProfessionalLogger {
     console.log(`${colors.gray}${'='.repeat(Math.max(title.length, subtitle?.length || 0))}${colors.reset}`);
   }
 
-  // Separator for visual organization
+  /**
+   * Display visual separator line
+   * 
+   * Outputs a horizontal line for visual organization in CLI output.
+   * 
+   * @example
+   * ```typescript
+   * logger.separator();
+   * // Outputs: ──────────────────────────────────────────────────
+   * ```
+   */
   separator(): void {
     if (this.config.quiet || this.config.json) return;
     console.log(`${colors.gray}${'─'.repeat(50)}${colors.reset}`);
   }
 
-  // Update configuration
+  /**
+   * Update logger configuration at runtime
+   * 
+   * Allows dynamic configuration changes during application execution.
+   * Updates both internal config and Winston logger settings.
+   * 
+   * @param newConfig - Partial configuration to merge with existing
+   * @example
+   * ```typescript
+   * logger.updateConfig({ verbose: true, level: 'debug' });
+   * ```
+   */
   updateConfig(newConfig: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.winston.level = this.config.verbose ? 'debug' : this.config.level;
@@ -251,12 +471,39 @@ class ProfessionalLogger {
 // Export singleton instance
 export const logger = new ProfessionalLogger();
 
-// Export factory for custom configurations
+/**
+ * Factory function to create a new logger instance
+ * 
+ * Convenience function for creating logger instances with configuration.
+ * Provides a clean API for logger initialization throughout the application.
+ * 
+ * @param config - Optional logger configuration
+ * @returns {ProfessionalLogger} Configured logger instance
+ * @example
+ * ```typescript
+ * const logger = createLogger({ verbose: true, json: false });
+ * logger.success('Application started');
+ * ```
+ */
 export function createLogger(config: Partial<LoggerConfig> = {}): ProfessionalLogger {
   return new ProfessionalLogger(config);
 }
 
-// Helper to parse CLI flags
+/**
+ * Parse command line arguments for logging configuration
+ * 
+ * Extracts logging flags from command line arguments and converts them
+ * to logger configuration object. Supports standard CLI patterns.
+ * 
+ * @param args - Command line arguments array (defaults to process.argv)
+ * @returns {Partial<LoggerConfig>} Configuration object based on CLI flags
+ * @example
+ * ```typescript
+ * // From command: node app.js --verbose --json
+ * const config = parseLogFlags();
+ * // Returns: { verbose: true, json: true }
+ * ```
+ */
 export function parseLogFlags(args: string[] = process.argv): Partial<LoggerConfig> {
   return {
     verbose: args.includes('--verbose') || args.includes('-v'),

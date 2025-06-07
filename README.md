@@ -71,7 +71,8 @@ Once in the CLI, use these commands:
 
 | Command | Description | Example Output |
 |---------|-------------|----------------|
-| `test` / `x402` | Test X402 payment flow | Professional payment flow with transaction details |
+| `test` / `x402` | Test X402 payment flow (0.01 USDC) | Premium content with AI analysis, market data, exclusive features |
+| `free` | Test free endpoint for comparison | Limited free tier content to contrast with premium |
 | `balance` / `bal` | Check USDC balance | Current balance with caching status |
 | `fund [amount]` | Add USDC from faucet | Funding status and new balance |
 | `info` / `status` | Show wallet information | Address, balance, session status |
@@ -111,6 +112,15 @@ Updated Balance: 2.88 USDC (-0.01)
 ```
 
 ### Server Logging
+
+**Free Content Request:**
+```
+[REQUEST] GET /free | Type: FREE content request | Client: public
+[FREE_CONTENT_ACCESSED] Endpoint: /free | Cost: FREE | Tier: PUBLIC
+Free tier request - no payment required
+```
+
+**Premium Content Request:**
 ```
 X402 Payment Server - Base Sepolia
 Listening: http://localhost:3000
@@ -118,10 +128,10 @@ Listening: http://localhost:3000
 Server Wallet: 0x9c5F...cA36 | Client Wallet: 0xA35d...E308
 ──────────────────────────────────────────────────
 
-[11:03:34] [REQUEST] Client: 0xA35d...E308
-[11:03:34] [PAYMENT_REQUIRED] Client: 0xA35d...E308 | Amount: 0.01 USDC
-[11:03:35] [PAYMENT_VERIFIED] 0.01 USDC 0xA35d...E308 → 0x9c5F...cA36
-[11:03:35] [CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
+[REQUEST] GET /protected | Type: PROTECTED content request | Client: Processing...
+[PAYMENT_REQUIRED] Client: 0xA35d...E308 | Amount: 0.01 USDC
+[PAYMENT_VERIFIED] 0.01 USDC 0xA35d...E308 → 0x9c5F...cA36
+[CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
 ```
 
 ## ⚙️ **Environment Setup**
@@ -165,11 +175,16 @@ Client CLI → X402 Request → 402 Response → EIP-712 Signing → Payment Ver
 ## 🔧 **Development Workflow**
 
 1. **Setup**: `npm run setup` (one-time wallet creation)
-2. **Server**: `npm run dev:server` (payment endpoint)
+2. **Server**: `npm run dev:server` (payment endpoints)
 3. **Client**: `npm run dev:client` (interactive testing)
-4. **Test**: Use `test` command in CLI
-5. **Monitor**: Watch structured logs in real-time
-6. **Debug**: Use `--verbose` flag for detailed output
+4. **Compare**: Use `free` command first to see free tier limitations
+5. **Test**: Use `test` command to experience premium content with payment
+6. **Monitor**: Watch structured logs comparing free vs paid requests
+7. **Debug**: Use `--verbose` flag for detailed output
+
+### Content Comparison
+- **Free Tier** (`/free`): Basic data, 15-min delays, limited features
+- **Premium Tier** (`/protected`): Real-time AI analysis, market predictions, exclusive insights
 
 ## 💳 **Payment Details**
 
@@ -177,6 +192,34 @@ Client CLI → X402 Request → 402 Response → EIP-712 Signing → Payment Ver
 - **Network**: Base Sepolia (testnet)
 - **Method**: EIP-712 signed authorization
 - **Facilitator**: Official Coinbase X402 facilitator
+
+## 🎯 **Premium Content Features**
+
+When you pay for `/protected` endpoint access, you receive:
+
+### 🤖 **AI Analysis**
+- Sentiment analysis with confidence scores
+- Market trend keywords and insights
+- Advanced AI analysis of payment trends
+
+### 📊 **Real-time Market Data** 
+- Live price predictions with accuracy metrics
+- Trading signals (bullish_momentum, volume_surge)
+- 5-point price history with volume data
+
+### ⭐ **Exclusive Content**
+- Unique report IDs and access tiers (GOLD_TIER)
+- Real-time analytics with AI insights
+- Remaining API credits and usage tracking
+
+### 💎 **Premium Features You Get**
+- 📊 Real-time market analysis (30-second updates)
+- 🤖 AI predictions with 87%+ accuracy  
+- 📈 Exclusive trading signals
+- 🔮 Predictive models (10M+ data points)
+- ⚡ Sub-millisecond API response times
+
+Compare this with the free tier's 15-minute delays and basic features!
 
 ## 🛠️ **Troubleshooting**
 
@@ -188,17 +231,33 @@ Client CLI → X402 Request → 402 Response → EIP-712 Signing → Payment Ver
 | Server not responding | Verify `npm run dev:server` is running |
 | Balance not updating | Use `refresh` command to clear cache |
 
+### Available Scripts
+```bash
+# Core commands
+npm run setup              # One-time wallet setup
+npm run dev:server         # Start X402 payment server  
+npm run dev:client         # Interactive CLI client
+npm run lint              # Check code quality & JSDoc
+npm run lint:fix          # Auto-fix linting issues
+
+# Testing endpoints
+curl http://localhost:3000/health     # Server health check (free)
+curl http://localhost:3000/free       # Free tier content (no payment)
+curl http://localhost:3000/protected  # Premium content (requires payment)
+```
+
 ### Debug Commands
 ```bash
 # Verbose client logging
 npm run dev:client -- --verbose
 
-# Check server health
-curl http://localhost:3000/health
-
 # Fund wallet if balance low
 # In CLI: fund 5
+
+# Compare free vs premium content
+# In CLI: free    (see free tier limitations)
+# In CLI: test    (pay for premium features)
 ```
 
-This testbed provides a complete X402 payment system with professional logging, perfect for developers testing micropayment integrations.
+This testbed provides a complete X402 payment system with **professional logging**, **rich premium content**, and **free vs paid comparison** - perfect for developers testing micropayment integrations and understanding the value proposition of paid APIs.
 

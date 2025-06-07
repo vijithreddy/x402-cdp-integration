@@ -4,7 +4,7 @@
     "module": "Node16",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -14,13 +14,13 @@
     "sourceMap": true,
     "moduleResolution": "node16",
     "resolveJsonModule": true,
-    "baseUrl": "./src",
+    "baseUrl": "./",
     "paths": {
-      "@shared/*": ["shared/*"],
-      "@server/*": ["server/*"],
-      "@client/*": ["client/*"]
+      "@shared/*": ["src/shared/*"],
+      "@server/*": ["src/server/*"],
+      "@client/*": ["src/client/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "setup.ts"],
   "exclude": ["node_modules", "dist"]
 } 

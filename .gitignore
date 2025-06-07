@@ -4,9 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build output
-dist/
-build/
+# Build output (not used - we run with ts-node)
+# dist/
+# build/
 
 # Environment variables (contains sensitive CDP credentials)
 .env

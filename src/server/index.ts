@@ -1,3 +1,28 @@
+/**
+ * X402 Express Server for Payment-Protected Content
+ * 
+ * A production-ready Express server implementing the X402 payment protocol
+ * for serving payment-protected content. Features professional logging,
+ * security headers, and dynamic wallet configuration.
+ * 
+ * Features:
+ * - X402 payment middleware integration
+ * - Dynamic server/client wallet loading
+ * - Professional structured logging
+ * - Security headers and input validation
+ * - Graceful error handling and shutdown
+ * - Real-time payment verification and logging
+ * 
+ * @example
+ * ```bash
+ * npm run dev:server
+ * # Server starts on http://localhost:3000
+ * # Protected endpoint: GET /protected (requires 0.01 USDC payment)
+ * ```
+ * 
+ * @since 1.0.0
+ */
+
 // Express Server Entry Point
 // TODO: Implement your Express server here
 
@@ -27,7 +52,20 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Load server wallet configuration dynamically
+/**
+ * Load server wallet configuration dynamically from saved wallet data
+ * 
+ * Reads the server wallet configuration from the JSON file created during setup.
+ * This ensures the server uses the correct wallet address for receiving payments.
+ * 
+ * @returns {{ address: string, name: string }} Server wallet configuration with address and name
+ * @throws {Error} When server wallet file is missing or invalid
+ * @example
+ * ```typescript
+ * const serverWallet = loadServerWallet();
+ * console.log(`Server wallet: ${serverWallet.address}`);
+ * ```
+ */
 function loadServerWallet(): { address: string; name: string } {
   const serverWalletPath = path.join(process.cwd(), 'server-wallet-data.json');
   
@@ -61,7 +99,19 @@ function loadServerWallet(): { address: string; name: string } {
   }
 }
 
-// Load client wallet configuration for display
+/**
+ * Load client wallet configuration for display purposes
+ * 
+ * Attempts to load client wallet information for logging and display.
+ * This is optional and used only for better user experience in logs.
+ * 
+ * @returns {{ address: string, name: string }} Client wallet information (may contain placeholder values)
+ * @example
+ * ```typescript
+ * const clientWallet = loadClientWallet();
+ * console.log(`Client wallet: ${clientWallet.address}`);
+ * ```
+ */
 function loadClientWallet(): { address: string; name: string } {
   const clientWalletPath = path.join(process.cwd(), 'wallet-data.json');
   
@@ -75,7 +125,7 @@ function loadClientWallet(): { address: string; name: string } {
         return { address: clientAddress || 'Not configured', name: clientName };
       }
     }
-  } catch (error) {
+  } catch {
     console.warn('⚠️ Could not load client wallet info for display');
   }
   
@@ -109,12 +159,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware - optimized telemetry
 app.use((req, res, next) => {
-  // Only log payment-related requests and errors, skip health checks
-  if (req.url === '/protected' || req.url.startsWith('/api/') || res.statusCode >= 400) {
+  // Log content requests (both free and paid) for comparison, skip health checks
+  if (req.url === '/protected' || req.url === '/free' || req.url.startsWith('/api/') || res.statusCode >= 400) {
+    const requestType = req.url === '/free' ? 'FREE content request' : 
+                       req.url === '/protected' ? 'PROTECTED content request' : 'Request';
+    
     serverLogger.flow('request', {
       method: req.method,
       url: req.url,
-      client: 'Processing...' // We'll identify client after payment verification
+      type: requestType,
+      client: req.url === '/free' ? 'public' : 'Processing...' // Free = public, protected = identify after payment
     });
   }
   
@@ -167,7 +221,7 @@ app.use((req, res, next) => {
       }
       
       return 'unknown';
-    } catch (error) {
+    } catch {
       return 'unknown';
     }
   };
@@ -196,6 +250,16 @@ app.use((req, res, next) => {
         client: clientAddress,
         status: 'Success'
       });
+    } else if (statusCode === 200 && req.url === '/free') {
+      // Log free content access for comparison with paid content
+      serverLogger.flow('free_content_accessed', {
+        client: 'public',
+        endpoint: req.url,
+        cost: 'FREE',
+        tier: 'PUBLIC'
+      });
+      
+      serverLogger.ui('Free tier request - no payment required');
     }
   };
   
@@ -233,6 +297,42 @@ app.get('/health', (req, res) => {
     walletInfo: {
       server: serverWallet.address,
       client: clientWallet.address
+    }
+  });
+});
+
+// Free tier endpoint for comparison
+app.get('/free', (req, res) => {
+  res.json({
+    contentTier: 'FREE',
+    message: '📖 Free Content - No Payment Required',
+    subtitle: 'This content is available without any payment',
+    data: {
+      basicInfo: {
+        service: 'X402 Demo API',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        accessLevel: 'PUBLIC'
+      },
+      freeFeatures: [
+        '📊 Basic market data (15-minute delay)',
+        '📈 Simple price charts',
+        '📱 Standard API rate limits',
+        '🔍 Limited search functionality',
+        '⏰ Business hours support only'
+      ],
+      limitations: {
+        updateFrequency: '15 minutes',
+        dataAccuracy: 'Standard',
+        apiCallsPerHour: 10,
+        supportLevel: 'Community forum only',
+        advancedFeatures: 'Not available'
+      },
+      upgradeInfo: {
+        note: 'Want real-time data and AI insights?',
+        upgrade: 'Try the /protected endpoint (requires 0.01 USDC payment)',
+        benefits: 'Unlock premium features, real-time data, and AI analysis'
+      }
     }
   });
 });
@@ -301,18 +401,85 @@ app.get('/protected', (req, res) => {
         }
         
         return 'unknown';
-      } catch (error) {
+      } catch {
         return 'unknown';
       }
     };
     
+    // Generate mock premium content to demonstrate value
+    const premiumFeatures = {
+      aiAnalysis: {
+        sentiment: Math.random() > 0.5 ? 'positive' : 'bullish',
+        confidence: (Math.random() * 40 + 60).toFixed(1) + '%',
+        keywords: ['blockchain', 'payments', 'web3', 'fintech'],
+        summary: 'Advanced AI analysis of payment trends and market sentiment'
+      },
+      marketData: {
+        priceHistory: Array.from({length: 5}, (_, i) => ({
+          timestamp: new Date(Date.now() - i * 3600000).toISOString(),
+          price: (Math.random() * 100 + 2000).toFixed(2),
+          volume: Math.floor(Math.random() * 1000000)
+        })),
+        predictiveModel: {
+          nextHour: '+' + (Math.random() * 5).toFixed(2) + '%',
+          accuracy: '87.3%',
+          signals: ['bullish_momentum', 'volume_surge']
+        }
+      },
+      exclusiveContent: {
+        reportId: `PREMIUM-${Date.now()}`,
+        accessLevel: 'GOLD_TIER',
+        contentType: 'Real-time Analytics + AI Insights',
+        remainingCredits: Math.floor(Math.random() * 50 + 10)
+      }
+    };
+
     res.json({
-      success: true,
-      message: '🎉 Payment successful! You accessed the protected endpoint.',
+      // Payment success indicator
+      paymentVerified: true,
+      contentTier: 'PREMIUM',
+      
+      // Clear messaging
+      message: '🔓 PREMIUM ACCESS GRANTED - Payment Verified',
+      subtitle: 'You have successfully accessed protected content via X402 payment',
+      
+      // Premium content payload
       data: {
-        secretInfo: 'This is premium content that costs 0.01 USDC',
-        timestamp: new Date().toISOString(),
-        userAddress: getClientFromPayment()
+        // Payment metadata
+        payment: {
+          amount: '0.01 USDC',
+          paidBy: getClientFromPayment(),
+          timestamp: new Date().toISOString(),
+          transactionType: 'X402_MICROPAYMENT'
+        },
+        
+        // Mock premium features that would justify the payment
+        premiumFeatures,
+        
+        // Access metadata
+        access: {
+          contentId: `protected-${Date.now()}`,
+          accessLevel: 'PREMIUM',
+          validUntil: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+          apiCallsRemaining: 99
+        },
+        
+        // Real premium content examples
+        insights: [
+          '📊 Real-time market analysis updated every 30 seconds',
+          '🤖 AI-powered predictions with 87%+ accuracy',
+          '📈 Exclusive trading signals not available on free tier',
+          '🔮 Predictive models based on 10M+ data points',
+          '⚡ Sub-millisecond API response times'
+        ],
+        
+        // Developer-friendly demonstration
+        developer: {
+          note: 'This content required X402 micropayment to access',
+          implementation: 'Automatic payment handled by x402-axios interceptor',
+          cost: '0.01 USDC per request',
+          billing: 'Pay-per-use model - no subscriptions needed'
+        }
       }
     });
   } catch (error: any) {
@@ -322,7 +489,7 @@ app.get('/protected', (req, res) => {
 });
 
 // Enhanced error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('❌ Server error:', err);
   
   // Handle specific error types
@@ -354,6 +521,7 @@ app.use('*', (req, res) => {
     message: `Endpoint ${req.originalUrl} not found`,
     availableEndpoints: [
       'GET /health (free)',
+      'GET /free (free - compare with premium)',
       'GET /protected (requires 0.01 USDC payment)'
     ]
   });

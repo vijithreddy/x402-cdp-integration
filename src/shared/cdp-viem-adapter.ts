@@ -1,10 +1,10 @@
-import { LocalAccount, SignableMessage, TypedDataDefinition } from 'viem';
+import { LocalAccount, SignableMessage } from 'viem';
 import { CdpClient } from '@coinbase/cdp-sdk';
 
 /**
  * Type definitions for CDP SDK responses
  */
-interface CDPSignatureResponse {
+interface _CDPSignatureResponse {
   signature: string;
 }
 
@@ -34,6 +34,17 @@ export interface CDPAccount {
  * @param cdpAccount CDP account object with address and name
  * @param cdpClient Initialized CDP client for signing operations
  * @returns LocalAccount Compatible viem account for use with X402 and other viem libraries
+ * @throws {Error} When CDP account is invalid or missing required fields
+ * @throws {Error} When CDP client is not provided or invalid
+ * @throws {Error} When account address format is invalid
+ * @example
+ * ```typescript
+ * const viemAccount = createViemAccountFromCDP(
+ *   { address: '0x123...', name: 'My Account' },
+ *   cdpClient
+ * );
+ * // Now use with X402 or other viem libraries
+ * ```
  */
 export function createViemAccountFromCDP(
   cdpAccount: CDPAccount,
@@ -265,6 +276,9 @@ export function createViemAccountFromCDP(
 
 /**
  * Validate that an account has the required signing capabilities for X402
+ * 
+ * @param account - LocalAccount instance to validate
+ * @returns True if account has required capabilities, false otherwise
  */
 export function validateViemAccount(account: LocalAccount): boolean {
   return (
@@ -277,6 +291,10 @@ export function validateViemAccount(account: LocalAccount): boolean {
 
 /**
  * Type-safe wrapper for CDP account data
+ * 
+ * @param address - Ethereum address for the account
+ * @param name - Human-readable name for the account
+ * @returns Validated CDP account object
  */
 export function createCDPAccount(address: string, name: string): CDPAccount {
   // Input validation
