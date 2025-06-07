@@ -6,7 +6,7 @@ A professional X402 micropayment system with interactive CLI for testing and dev
 
 ```bash
 # 1. Clone and install
-git clone <your-repo-url>
+git clone git@github.com:vijithreddy/x402-cdp-integration.git
 cd x402-cdp-integration
 npm install
 
