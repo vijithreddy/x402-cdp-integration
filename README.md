@@ -79,6 +79,28 @@ Server Wallet: 0x9c5F...cA36 | Client Wallet: 0xA35d...E308
 
 ## 🏗️ **Modular Architecture**
 
+### **🎯 Key Architectural Decision: Centralized X402 Middleware**
+
+**No per-route middleware needed!** We use a **centralized approach**:
+
+```typescript
+// ✅ ONE middleware handles ALL payment routes
+app.use(paymentMiddleware(serverWallet, routeConfigs, facilitator));
+
+// ✅ Routes just define requirements declaratively  
+const route = {
+  requiresPayment: true,
+  price: '0.05 USDC',
+  handler: justReturnsContent  // No payment logic needed!
+};
+```
+
+**Benefits:**
+- 🚀 **Simple route handlers** - Just return content, no payment code
+- 🔧 **Auto-configuration** - Payment setup derived from route definitions  
+- 📊 **Consistent logging** - All payments tracked the same way
+- 🛠️ **Easy maintenance** - One place to update payment logic
+
 ### **Client Architecture**
 ```
 src/client/
@@ -261,16 +283,22 @@ Add to `src/server/routes/index.ts`:
 // Import your route
 import { myPremiumRoute } from './my-premium';
 
-// Add to the routes array
+// Add to the routes array - X402 middleware auto-configures from this!
 export const allRoutes: RouteDefinition[] = [
   healthRoute,
   freeRoute,
   protectedRoute,
   premiumPlusRoute,
   enterpriseRoute,
-  myPremiumRoute  // <-- Add your route here
+  myPremiumRoute  // <-- Add here, no additional middleware needed!
 ];
 ```
+
+**🎯 That's it!** The central X402 middleware automatically:
+- Reads your route definition  
+- Configures payment requirements
+- Handles payment verification
+- Your route handler just returns content
 
 ### **3. Create a Client Command (Optional)**
 Create `src/client/commands/x402/my-tier.ts`:
