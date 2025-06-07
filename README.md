@@ -1,6 +1,6 @@
-# X402 Payment System - Interactive Developer Testbed
+# X402 Payment System - Interactive Developer Playground
 
-A professional X402 micropayment system with interactive CLI for testing and development. Features structured logging, real-time payment flows, and comprehensive developer tooling.
+A **X402 micropayment system** with modular architecture, comprehensive logging, and tiered payment system. Perfect for learning X402 integration or building payment-protected content APIs.
 
 ## 🚀 **Quick Start**
 
@@ -12,252 +12,396 @@ npm install
 
 # 2. Setup environment (.env file)
 cp .env.example .env
-# Add your CDP credentials to .env
+# Add your CDP API credentials to .env
 
-# 3. One-command setup
+# 3. One-command setup (creates wallets automatically)
 npm run setup
 
-# 4. Start testing
-npm run dev:server  # Terminal 1
-npm run dev:client  # Terminal 2
+# 4. Start testing X402 payments
+npm run dev:server  # Terminal 1: Payment server
+npm run dev:client  # Terminal 2: Interactive CLI
 ```
 
-## 📋 **Dependencies**
+## 🎮 **Interactive CLI Features**
 
-### Required Dependencies
+### **Three-Tier Payment System**
+Test different pricing models and content quality levels:
+
+| Command | Cost | Content Type | Features |
+|---------|------|--------------|----------|
+| `free` | **FREE** | Public content | Basic data, 15-min delays, limited features |
+| `test` / `x402` | **0.01 USDC** | Basic premium | Real-time AI analysis, market predictions |
+| `tier2` | **0.1 USDC** | Premium Plus | Institutional-grade analytics, whale tracking |
+| `tier3` | **1.0 USDC** | Enterprise | Custom insights, sub-millisecond data, compliance |
+
+### **Wallet Management Commands**
+| Command | Description | Example |
+|---------|-------------|---------|
+| `balance` / `bal` | Check USDC balance | `💰 Current USDC balance: 4.75 USDC` |
+| `fund [amount]` | Add USDC from faucet | `✅ Funding operation completed!` |
+| `info` / `status` | Show wallet info | Address, balance, session status |
+| `refresh` / `reload` | Force refresh from blockchain | Updates cached balance |
+
+### **Utility Commands**
+| Command | Description |
+|---------|-------------|
+| `help` / `h` | Show all available commands |
+| `clear` / `cls` | Clear the screen |
+| `exit` / `quit` / `q` | Exit CLI with cleanup |
+
+## 📊 **Server Logging Examples**
+
+### **Clean Output**
+```bash
+X402 Payment Server - Base Sepolia    
+Listening: http://localhost:3000
+Server Wallet: 0x9c5F...cA36 | Client Wallet: 0xA35d...E308
+──────────────────────────────────────────────────
+
+# Free content access
+[18:45:01] [FREE_CONTENT_ACCESSED] Client: public | Endpoint: /free | Cost: FREE
+
+# Basic premium payment flow
+[18:45:27] [PAYMENT_REQUIRED] Client: requesting Basic | Amount: 0.01 USDC
+[18:45:28] [PAYMENT_VERIFIED] 0.01 USDC 0xA35d...E308 → 0x9c5F...cA36
+[18:45:28] [CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
+
+# Premium Plus payment flow  
+[18:45:41] [PAYMENT_REQUIRED] Client: requesting Premium | Amount: 0.1 USDC
+[18:45:42] [PAYMENT_VERIFIED] 0.1 USDC 0xA35d...E308 → 0x9c5F...cA36
+[18:45:42] [CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
+
+# Enterprise payment flow
+[18:45:59] [PAYMENT_REQUIRED] Client: requesting Enterprise | Amount: 1.0 USDC
+[18:46:00] [PAYMENT_VERIFIED] 1.0 USDC 0xA35d...E308 → 0x9c5F...cA36
+[18:46:00] [CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
+```
+
+## 🏗️ **Modular Architecture**
+
+### **Client Architecture**
+```
+src/client/
+├── index.ts                 # Clean 8-line entry point
+├── core/
+│   ├── cli.ts              # Main CLI class with session management  
+│   └── commands.ts         # Command registry and router
+├── commands/
+│   ├── balance.ts          # Wallet balance checking
+│   ├── fund.ts             # Faucet funding
+│   ├── info.ts             # Wallet information
+│   ├── free.ts             # Free content test
+│   ├── help.ts             # Command help system
+│   └── x402/               # Modular X402 payment system
+│       ├── index.ts        # Shared utilities & config
+│       ├── types.ts        # TypeScript interfaces
+│       ├── tier1.ts        # Basic Premium (0.01 USDC)
+│       ├── tier2.ts        # Premium Plus (0.1 USDC)
+│       └── tier3.ts        # Enterprise (1.0 USDC)
+├── types/
+│   └── commands.ts         # CLI command interfaces
+└── utils/
+    └── display.ts          # Output formatting utilities
+```
+
+### **Server Architecture**
+```
+src/server/
+├── index.ts                # Main server with proper imports
+├── routes/
+│   ├── index.ts           # Route registry with auto-discovery
+│   ├── health.ts          # Health check endpoint
+│   ├── free.ts            # Free content endpoint
+│   ├── protected.ts       # Basic premium (0.01 USDC)
+│   ├── premium-plus.ts    # Premium Plus (0.1 USDC)
+│   └── enterprise.ts      # Enterprise (1.0 USDC)
+├── middleware/
+│   ├── logging.ts         # Professional request/response logging
+│   └── security.ts        # Security headers & validation
+├── utils/
+│   └── payment-parser.ts  # X402 payment header parsing
+└── config/
+    ├── wallet.ts          # Dynamic wallet loading
+    └── x402.ts            # X402 payment configuration
+```
+
+## 🔧 **How to Add Your Own Command**
+
+### **1. Create a New Command File**
+Create `src/client/commands/my-command.ts`:
+
+```typescript
+import type { CLICommand, CommandContext } from '../types/commands';
+
+export const myCommand: CLICommand = {
+  name: 'my-command',
+  aliases: ['mc'],
+  description: 'My custom command description',
+  usage: 'my-command [arguments]',
+  
+  async execute(args: string[], context: CommandContext): Promise<void> {
+    console.log('🎉 My custom command executed!');
+    console.log('Arguments:', args);
+    console.log('Wallet address:', context.walletManager.getAddress());
+    
+    // Add your custom logic here
+    // You can access:
+    // - context.walletManager for wallet operations
+    // - context.logger for structured logging
+    // - args for command arguments
+  }
+};
+```
+
+### **2. Register the Command**
+Add your command to `src/client/core/commands.ts`:
+
+```typescript
+// Import your command
+import { myCommand } from '../commands/my-command';
+
+// Add to the commands array
+const commands: CLICommand[] = [
+  balanceCommand,
+  fundCommand,
+  infoCommand,
+  freeCommand,
+  x402Command,
+  myCommand,  // <-- Add your command here
+  helpCommand
+];
+```
+
+### **3. Test Your Command**
+```bash
+npm run dev:client
+cdp-wallet> my-command test args
+🎉 My custom command executed!
+Arguments: ['test', 'args']
+Wallet address: 0xA35d0FD4a75b50F2Bc71c50a922C8215b9bBE308
+```
+
+## 💳 **How to Add Your Own X402 Route**
+
+### **1. Create a Route Module**
+Create `src/server/routes/my-premium.ts`:
+
+```typescript
+import type { Request, Response } from 'express';
+import type { RouteDefinition } from './health';
+
+/**
+ * Generate your custom premium content
+ */
+function generateMyPremiumContent() {
+  return {
+    customFeature: {
+      data: 'Your premium data here',
+      timestamp: new Date().toISOString(),
+      value: Math.random() * 100
+    },
+    exclusiveContent: {
+      message: 'This required payment to access!',
+      contentId: `my-premium-${Date.now()}`,
+      features: [
+        '🎯 Custom feature 1',
+        '⚡ Custom feature 2', 
+        '🚀 Custom feature 3'
+      ]
+    }
+  };
+}
+
+/**
+ * Route handler for your premium content
+ */
+function myPremiumHandler(req: Request, res: Response): void {
+  try {
+    const premiumData = generateMyPremiumContent();
+    
+    res.json({
+      paymentVerified: true,
+      message: '🎉 MY PREMIUM CONTENT - Payment Verified!',
+      data: {
+        payment: {
+          amount: '0.05 USDC',  // Your custom price
+          type: 'MY_CUSTOM_PAYMENT'
+        },
+        content: premiumData,
+        developer: {
+          note: 'This content required 0.05 USDC payment',
+          cost: '0.05 USDC per request'
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error in my-premium endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Route definition - Easy to customize!
+ */
+export const myPremiumRoute: RouteDefinition = {
+  path: '/my-premium',
+  method: 'get',
+  handler: myPremiumHandler,
+  requiresPayment: true,
+  price: '0.05 USDC',        // Your custom price
+  network: 'base-sepolia',
+  description: 'My custom premium content (0.05 USDC)'
+};
+```
+
+### **2. Register Your Route**
+Add to `src/server/routes/index.ts`:
+
+```typescript
+// Import your route
+import { myPremiumRoute } from './my-premium';
+
+// Add to the routes array
+export const allRoutes: RouteDefinition[] = [
+  healthRoute,
+  freeRoute,
+  protectedRoute,
+  premiumPlusRoute,
+  enterpriseRoute,
+  myPremiumRoute  // <-- Add your route here
+];
+```
+
+### **3. Create a Client Command (Optional)**
+Create `src/client/commands/x402/my-tier.ts`:
+
+```typescript
+import type { CLICommand, CommandContext } from '../../types/commands';
+import { makeX402Request, formatPaymentResponse } from './index';
+
+export const myTierCommand: CLICommand = {
+  name: 'my-tier',
+  description: 'Test my custom premium content (0.05 USDC)',
+  usage: 'my-tier',
+  
+  async execute(args: string[], context: CommandContext): Promise<void> {
+    console.log('My Custom Premium Test');
+    console.log('Testing my premium endpoint');
+    console.log('=======================');
+    
+    try {
+      const response = await makeX402Request('/my-premium', context);
+      formatPaymentResponse(response, context);
+    } catch (error: any) {
+      console.error('❌ Payment failed:', error.message);
+    }
+  }
+};
+```
+
+### **4. Test Your Custom Route**
+```bash
+# Start server (automatically picks up new route)
+npm run dev:server
+
+# In client
+cdp-wallet> my-tier
+
+My Custom Premium Test
+Testing my premium endpoint  
+=======================
+[PAYMENT_REQUIRED] Client: requesting content | Amount: 0.05 USDC
+[PAYMENT_VERIFIED] 0.05 USDC 0xA35d...E308 → server
+🎉 MY PREMIUM CONTENT - Payment Verified!
+```
+
+## 📋 **Project Dependencies**
+
+### **Core Dependencies**
 ```json
 {
   "@coinbase/cdp-sdk": "^1.12.0",
-  "@coinbase/x402": "^0.3.8", 
-  "express": "^4.18.0",
-  "viem": "^2.30.6",
+  "@coinbase/x402": "^0.3.8",
+  "express": "^4.18.0", 
   "x402-express": "^0.3.4",
   "x402-axios": "^0.3.3",
   "winston": "^3.0.0",
   "axios": "^1.6.0",
-  "dotenv": "^16.3.0"
+  "dotenv": "^16.3.0",
+  "viem": "^2.30.6"
 }
 ```
 
-### Development Dependencies
-```json
-{
-  "@types/express": "^4.17.17",
-  "@types/node": "^20.0.0",
-  "typescript": "^5.0.0",
-  "ts-node": "^10.9.0"
-}
-```
-
-## 🎮 **Interactive CLI Usage**
-
-### Start the Client
+### **Available Scripts**
 ```bash
-# Standard mode
-npm run dev:client
-
-# Verbose debugging 
-npm run dev:client -- --verbose
-
-# Quiet mode (minimal output)
-npm run dev:client -- --quiet
-
-# JSON output (for tooling)
-npm run dev:client -- --json
-```
-
-### Available Commands
-Once in the CLI, use these commands:
-
-| Command | Description | Example Output |
-|---------|-------------|----------------|
-| `test` / `x402` | Test X402 payment flow (0.01 USDC) | Premium content with AI analysis, market data, exclusive features |
-| `free` | Test free endpoint for comparison | Limited free tier content to contrast with premium |
-| `balance` / `bal` | Check USDC balance | Current balance with caching status |
-| `fund [amount]` | Add USDC from faucet | Funding status and new balance |
-| `info` / `status` | Show wallet information | Address, balance, session status |
-| `refresh` / `reload` | Force refresh from blockchain | Updated balance without cache |
-| `help` / `h` | Show all commands | Complete command reference |
-| `clear` / `cls` | Clear screen | - |
-| `exit` / `quit` / `q` | Exit CLI | Graceful session cleanup |
-
-## 📊 **Logging Output**
-
-### Standard Mode
-```
-X402 Payment Test
-Testing protected endpoint access
-=================================
-Balance: 2.89 USDC → Sufficient for 0.01 USDC payment ✓
-Wallet: 0xA35d0FD4a75b50F2Bc71c50a922C8215b9bBE308
-
-[11:03:34] [PAYMENT_REQUEST] Client: 0xA35d...E308
-[11:03:39] [PAYMENT_COMPLETE] 0.01 USDC 0xA35d...E308 → Server (4.4s)
-
-Result: ✅ Payment successful
-Transaction: 0x78b289e46a5e04df9da40daf7329915d3c66fcd5e97b539dcb8100985822b963
-Updated Balance: 2.88 USDC (-0.01)
-──────────────────────────────────────────────────
-```
-
-### Verbose Mode (`--verbose`)
-```
-[DEBUG] Viem account ready
-{
-  "address": "0xA35d0FD4a75b50F2Bc71c50a922C8215b9bBE308",
-  "hasSignTypedData": true
-}
-[DEBUG] CDP Adapter: Signing EIP-712 typed data for X402...
-[DEBUG] Response data: { "success": true, "message": "Payment successful!" }
-```
-
-### Server Logging
-
-**Free Content Request:**
-```
-[REQUEST] GET /free | Type: FREE content request | Client: public
-[FREE_CONTENT_ACCESSED] Endpoint: /free | Cost: FREE | Tier: PUBLIC
-Free tier request - no payment required
-```
-
-**Premium Content Request:**
-```
-X402 Payment Server - Base Sepolia
-Listening: http://localhost:3000
-==================================
-Server Wallet: 0x9c5F...cA36 | Client Wallet: 0xA35d...E308
-──────────────────────────────────────────────────
-
-[REQUEST] GET /protected | Type: PROTECTED content request | Client: Processing...
-[PAYMENT_REQUIRED] Client: 0xA35d...E308 | Amount: 0.01 USDC
-[PAYMENT_VERIFIED] 0.01 USDC 0xA35d...E308 → 0x9c5F...cA36
-[CONTENT_DELIVERED] Client: 0xA35d...E308 | Status: Success
+npm run setup          # One-time wallet setup
+npm run dev:server     # Start X402 payment server
+npm run dev:client     # Start interactive CLI
+npm run lint           # TypeScript & ESLint validation  
+npm run clean          # Remove generated files
 ```
 
 ## ⚙️ **Environment Setup**
 
-### Prerequisites
-- **Node.js**: Version 23+
+### **Prerequisites**
+- **Node.js 23+**
 - **CDP Account**: [Coinbase Developer Platform](https://www.coinbase.com/cloud)
 
-### Environment Variables
-Copy the example file and add your CDP credentials:
+### **Environment Variables** 
+Create `.env` file:
 ```bash
-cp .env-example .env
-# Edit .env file with your CDP credentials:
-# CDP_API_KEY_ID=your_api_key_id_here
-# CDP_API_KEY_SECRET=your_private_key_content_here  
-# CDP_WALLET_SECRET=your_wallet_secret_here
+# Required: CDP API Credentials
+CDP_API_KEY_ID=your_api_key_id_here
+CDP_API_KEY_SECRET=your_private_key_here
+CDP_WALLET_SECRET=your_wallet_secret_here
+
+# Optional: Server Configuration
+PORT=3000
+LOG_LEVEL=info
 ```
 
-## 🏗️ **System Architecture**
+## 🎯 **What Makes This Special**
 
-### Payment Flow
-```
-Client CLI → X402 Request → 402 Response → EIP-712 Signing → Payment Verification → Content Access
-```
+### **✅ Production-Ready Architecture**
+- **Modular design** - Easy to extend with new commands and routes
+- **TypeScript throughout** - Full type safety and excellent DX
+- **Professional logging** - Structured, configurable output
+- **Error handling** - Graceful failures with clear messaging
+- **Security first** - Proper headers, input validation, no credential logging
 
-### Logging Levels
-- **UI**: Clean user interface messages
-- **FLOW**: Payment process steps with timestamps
-- **DEBUG**: Technical details (verbose mode only)
-- **ERROR**: Failures with context
-- **TRANSACTION**: Payment-specific logging with amounts and hashes
+### **✅ Educational Value**
+- **Three payment tiers** - See how pricing affects content quality
+- **Complete payment flow** - From discovery to verification to delivery
+- **Real transaction logs** - Understand X402 protocol in action
+- **Modular examples** - Easy templates for adding your own features
 
-### Key Features
-- **Interactive CLI**: Real-time command interface
-- **Professional Logging**: Structured, configurable output
-- **Smart Caching**: Optimized balance management
-- **Type Safety**: Full TypeScript implementation
-- **Error Handling**: Comprehensive error recovery
-- **Payment Tracking**: Transaction hashes and timing
+### **✅ Developer Experience**  
+- **8-line entry point** - Clean, minimal startup
+- **Auto-discovery** - Routes and commands register automatically
+- **Live reloading** - Changes reflected immediately
+- **Comprehensive help** - Built-in documentation for all commands
+- **Smart caching** - Optimized balance management and API calls
 
-## 🔧 **Development Workflow**
+## 🚀 **Next Steps**
 
-1. **Setup**: `npm run setup` (one-time wallet creation)
-2. **Server**: `npm run dev:server` (payment endpoints)
-3. **Client**: `npm run dev:client` (interactive testing)
-4. **Compare**: Use `free` command first to see free tier limitations
-5. **Test**: Use `test` command to experience premium content with payment
-6. **Monitor**: Watch structured logs comparing free vs paid requests
-7. **Debug**: Use `--verbose` flag for detailed output
+1. **Follow the Quick Start** to get running in minutes
+2. **Try all three payment tiers** to see content quality differences  
+3. **Add your own command** using the template above
+4. **Create a custom X402 route** with your own pricing
+5. **Study the logs** to understand X402 payment flows
+6. **Experiment with pricing** - see how cost affects user behavior
 
-### Content Comparison
-- **Free Tier** (`/free`): Basic data, 15-min delays, limited features
-- **Premium Tier** (`/protected`): Real-time AI analysis, market predictions, exclusive insights
+## 💡 **Use Cases**
 
-## 💳 **Payment Details**
+- **Learning X402** - Understanding micropayments in practice
+- **API Monetization** - Adding payments to existing APIs
+- **Content Gating** - Different content tiers based on payment
+- **Developer Tools** - Building X402-enabled applications
+- **Research** - Studying micropayment user behavior
 
-- **Cost**: 0.01 USDC per protected request
-- **Network**: Base Sepolia (testnet)
-- **Method**: EIP-712 signed authorization
-- **Facilitator**: Official Coinbase X402 facilitator
+---
 
-## 🎯 **Premium Content Features**
+**Built with ❤️ for the X402 developer community**
 
-When you pay for `/protected` endpoint access, you receive:
-
-### 🤖 **AI Analysis**
-- Sentiment analysis with confidence scores
-- Market trend keywords and insights
-- Advanced AI analysis of payment trends
-
-### 📊 **Real-time Market Data** 
-- Live price predictions with accuracy metrics
-- Trading signals (bullish_momentum, volume_surge)
-- 5-point price history with volume data
-
-### ⭐ **Exclusive Content**
-- Unique report IDs and access tiers (GOLD_TIER)
-- Real-time analytics with AI insights
-- Remaining API credits and usage tracking
-
-### 💎 **Premium Features You Get**
-- 📊 Real-time market analysis (30-second updates)
-- 🤖 AI predictions with 87%+ accuracy  
-- 📈 Exclusive trading signals
-- 🔮 Predictive models (10M+ data points)
-- ⚡ Sub-millisecond API response times
-
-Compare this with the free tier's 15-minute delays and basic features!
-
-## 🛠️ **Troubleshooting**
-
-### Common Issues
-| Issue | Solution |
-|-------|----------|
-| Missing environment variables | Check `.env` file has all CDP credentials |
-| X402 payment failed | Ensure balance > 0.01 USDC, use `fund` command |
-| Server not responding | Verify `npm run dev:server` is running |
-| Balance not updating | Use `refresh` command to clear cache |
-
-### Available Scripts
-```bash
-# Core commands
-npm run setup              # One-time wallet setup
-npm run dev:server         # Start X402 payment server  
-npm run dev:client         # Interactive CLI client
-npm run lint              # Check code quality & JSDoc
-npm run lint:fix          # Auto-fix linting issues
-
-# Testing endpoints
-curl http://localhost:3000/health     # Server health check (free)
-curl http://localhost:3000/free       # Free tier content (no payment)
-curl http://localhost:3000/protected  # Premium content (requires payment)
-```
-
-### Debug Commands
-```bash
-# Verbose client logging
-npm run dev:client -- --verbose
-
-# Fund wallet if balance low
-# In CLI: fund 5
-
-# Compare free vs premium content
-# In CLI: free    (see free tier limitations)
-# In CLI: test    (pay for premium features)
-```
-
-This testbed provides a complete X402 payment system with **professional logging**, **rich premium content**, and **free vs paid comparison** - perfect for developers testing micropayment integrations and understanding the value proposition of paid APIs.
+*Perfect for hackathons, learning, and building the future of micropayments*
 

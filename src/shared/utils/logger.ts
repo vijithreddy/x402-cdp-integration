@@ -378,7 +378,13 @@ class ProfessionalLogger {
   private formatFlowDetails(details: any): string {
     const parts: string[] = [];
     
-    if (details.client) parts.push(`Client: ${this.shortenAddress(details.client)}`);
+    // Handle client field - only shorten if it looks like an address (0x format)
+    if (details.client) {
+      const clientValue = details.client.startsWith('0x') && details.client.length === 42 
+        ? this.shortenAddress(details.client)
+        : details.client;
+      parts.push(`Client: ${clientValue}`);
+    }
     if (details.amount) parts.push(`Amount: ${details.amount}`);
     if (details.status) parts.push(`Status: ${details.status}`);
     if (details.duration) parts.push(`(${details.duration}s)`);

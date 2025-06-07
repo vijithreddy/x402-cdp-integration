@@ -16,24 +16,14 @@ const serverLogger = createLogger(logConfig);
 /**
  * Request logging middleware
  * 
- * Logs incoming requests with appropriate classification (FREE, PROTECTED, etc.)
- * Skips health checks to reduce noise while capturing important content requests.
+ * Now disabled - all logging happens in response middleware to avoid duplicates
+ * and provide better payment flow visibility.
  */
 export function requestLoggingMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Log content requests (both free and paid) for comparison, skip health checks
-  if (req.url === '/protected' || req.url === '/free' || req.url.startsWith('/api/') || res.statusCode >= 400) {
-    const requestType = req.url === '/free' ? 'FREE content request' : 
-                       req.url === '/protected' ? 'PROTECTED content request' : 'Request';
-    
-    serverLogger.flow('request', {
-      method: req.method,
-      url: req.url,
-      type: requestType,
-      client: req.url === '/free' ? 'public' : 'Processing...' // Free = public, protected = identify after payment
-    });
-  }
+  // Skip all request logging - everything happens in response middleware
+  // This prevents duplicate logs and provides cleaner payment flow tracking
   
-  // Only log request body in verbose mode for debugging
+  // Only log request body in debug mode for debugging
   if (req.body && Object.keys(req.body).length > 0) {
     serverLogger.debug('Request body', req.body);
   }
@@ -57,35 +47,67 @@ export function responseLoggingMiddleware(req: Request, res: Response, next: Nex
     responseLogged = true;
     
     const clientAddress = getClientFromPayment(req);
+    const shortClient = clientAddress !== 'unknown' ? 
+      `${clientAddress.substring(0, 6)}...${clientAddress.substring(38)}` : 
+      'unknown';
     
+    // Log based on status code and endpoint
     if (statusCode === 402) {
+      // Payment required - determine price and content type from route config
+      let routePrice = 'varies';
+      let contentType = 'content';
+      
+      if (req.url === '/protected') {
+        routePrice = '0.01 USDC';
+        contentType = 'Basic';
+      } else if (req.url === '/premium-plus') {
+        routePrice = '0.1 USDC';
+        contentType = 'Premium';
+      } else if (req.url === '/enterprise') {
+        routePrice = '1.0 USDC';
+        contentType = 'Enterprise';
+      }
+      
+      // For 402 status, show descriptive client request message
+      let paymentClient = shortClient;
+      if (paymentClient === 'unknown') {
+        paymentClient = `requesting ${contentType}`;
+      } else {
+        paymentClient = `${shortClient} requesting ${contentType}`;
+      }
+      
       serverLogger.flow('payment_required', {
-        client: clientAddress,
+        client: paymentClient,
         endpoint: req.url,
-        amount: '0.01 USDC'
+        amount: routePrice
       });
-    } else if (statusCode === 200 && req.url === '/protected') {
-      serverLogger.transaction('payment_verified', {
-        amount: '0.01 USDC',
-        from: clientAddress,
-        to: 'server', // Will be populated with actual server address
-        status: 'success' as const
-      });
-      
-      serverLogger.flow('content_delivered', {
-        client: clientAddress,
-        status: 'Success'
-      });
-    } else if (statusCode === 200 && req.url === '/free') {
-      // Log free content access for comparison with paid content
-      serverLogger.flow('free_content_accessed', {
-        client: 'public',
-        endpoint: req.url,
-        cost: 'FREE',
-        tier: 'PUBLIC'
-      });
-      
-      serverLogger.ui('Free tier request - no payment required');
+    } else if (statusCode === 200) {
+      if (req.url === '/free') {
+        // Free content access
+        serverLogger.flow('free_content_accessed', {
+          client: 'public',
+          endpoint: req.url,
+          cost: 'FREE',
+          tier: 'PUBLIC'
+        });
+      } else if (req.url === '/protected' || req.url === '/premium-plus' || req.url === '/enterprise') {
+        // Successful payment and content delivery
+        const routePrice = req.url === '/protected' ? '0.01 USDC' :
+                          req.url === '/premium-plus' ? '0.1 USDC' :
+                          req.url === '/enterprise' ? '1.0 USDC' : 'varies';
+        
+        serverLogger.transaction('payment_verified', {
+          amount: routePrice,
+          from: shortClient,
+          to: 'server', // Will be populated with actual server address when available
+          status: 'success' as const
+        });
+        
+        serverLogger.flow('content_delivered', {
+          client: shortClient,
+          status: 'Success'
+        });
+      }
     }
   };
   

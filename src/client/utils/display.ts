@@ -20,8 +20,11 @@ export function showCommandSummary(): void {
   console.log('📖 Available Commands:');
   console.log('  balance, bal     - Check USDC balance');
   console.log('  fund [amount]    - Fund wallet with USDC');
-  console.log('  test, x402       - Test X402 payment (0.01 USDC)');
+  console.log('  test, x402       - Test X402 payment (alias to tier1)');
   console.log('  free             - Test free endpoint (no payment)');
+  console.log('  tier1, basic     - Test X402 Basic Premium (~0.01 USDC)');
+  console.log('  tier2, premium   - Test X402 Premium Plus (~0.1 USDC)');
+  console.log('  tier3, enterprise- Test X402 Enterprise (~1.0 USDC)');
   console.log('  info, status     - Show wallet information');
   console.log('  refresh, reload  - Force refresh from blockchain');
   console.log('  clear, cls       - Clear the screen');
@@ -38,8 +41,11 @@ export function showDetailedHelp(): void {
   console.log('===================');
   console.log('  balance, bal     - Check USDC balance (cached when possible)');
   console.log('  fund [amount]    - Fund wallet with USDC (default: 5 USDC)');
-  console.log('  test, x402       - Test X402 protected endpoint (0.01 USDC)');
+  console.log('  test, x402       - Test X402 protected endpoint (alias to tier1)');
   console.log('  free             - Test free endpoint for comparison (no payment)');
+  console.log('  tier1, basic     - Test X402 Basic Premium tier (~0.01 USDC)');
+  console.log('  tier2, premium   - Test X402 Premium Plus tier (~0.1 USDC)');
+  console.log('  tier3, enterprise- Test X402 Enterprise tier (~1.0 USDC)');
   console.log('  info, status     - Show wallet information');
   console.log('  refresh, reload  - Force refresh cache from blockchain');
   console.log('  clear, cls       - Clear the screen');

@@ -33,6 +33,8 @@ import { facilitator } from '@coinbase/x402';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createLogger, parseLogFlags } from '../shared/utils/logger';
+import { registerRoutes, allRoutes } from './routes';
+import { requestLoggingMiddleware, responseLoggingMiddleware } from './middleware/logging';
 
 // Load environment variables
 dotenv.config();
@@ -157,205 +159,38 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware - optimized telemetry
-app.use((req, res, next) => {
-  // Log content requests (both free and paid) for comparison, skip health checks
-  if (req.url === '/protected' || req.url === '/free' || req.url.startsWith('/api/') || res.statusCode >= 400) {
-    const requestType = req.url === '/free' ? 'FREE content request' : 
-                       req.url === '/protected' ? 'PROTECTED content request' : 'Request';
-    
-    serverLogger.flow('request', {
-      method: req.method,
-      url: req.url,
-      type: requestType,
-      client: req.url === '/free' ? 'public' : 'Processing...' // Free = public, protected = identify after payment
-    });
-  }
-  
-  // Only log request body in verbose mode for debugging
-  if (req.body && Object.keys(req.body).length > 0) {
-    serverLogger.debug('Request body', req.body);
-  }
-  
-  next();
-});
+// Apply logging middleware
+app.use(requestLoggingMiddleware);
+app.use(responseLoggingMiddleware);
 
-// Response logging middleware - eliminate duplicates
-app.use((req, res, next) => {
-  const originalSend = res.send;
-  const originalJson = res.json;
-  let responseLogged = false; // Prevent duplicate logging
-  
-  // Helper to extract client address from x-payment header
-  const getClientFromPayment = (): string => {
-    const xPayment = req.headers['x-payment'] as string;
-    if (!xPayment) return 'unknown';
-    
-    try {
-      // Try to decode as base64 and parse JSON
-      if (/^[A-Za-z0-9+/]*={0,2}$/.test(xPayment)) {
-        const decoded = Buffer.from(xPayment, 'base64').toString('utf-8');
-        const paymentData = JSON.parse(decoded);
-        
-        // X402 payment structure: payload.authorization.from contains the client address
-        if (paymentData?.payload?.authorization?.from) {
-          const clientAddress = paymentData.payload.authorization.from;
-          if (typeof clientAddress === 'string' && clientAddress.startsWith('0x')) {
-            return clientAddress;
-          }
-        }
-        
-        // Fallback: look for other common address fields
-        const possibleAddresses = [
-          paymentData.from,
-          paymentData.payer, 
-          paymentData.sender,
-          paymentData.address,
-          paymentData.wallet,
-          paymentData.account
-        ].filter(addr => addr && typeof addr === 'string' && addr.startsWith('0x'));
-        
-        if (possibleAddresses.length > 0) {
-          return possibleAddresses[0];
-        }
-      }
-      
-      return 'unknown';
-    } catch {
-      return 'unknown';
-    }
-  };
-  
-  const logResponse = (statusCode: number) => {
-    if (responseLogged) return;
-    responseLogged = true;
-    
-    const clientAddress = getClientFromPayment();
-    
-    if (statusCode === 402) {
-      serverLogger.flow('payment_required', {
-        client: clientAddress,
-        endpoint: req.url,
-        amount: '0.01 USDC'
-      });
-    } else if (statusCode === 200 && req.url === '/protected') {
-      serverLogger.transaction('payment_verified', {
-        amount: '0.01 USDC',
-        from: clientAddress,
-        to: serverWallet.address,
-        status: 'success' as const
-      });
-      
-      serverLogger.flow('content_delivered', {
-        client: clientAddress,
-        status: 'Success'
-      });
-    } else if (statusCode === 200 && req.url === '/free') {
-      // Log free content access for comparison with paid content
-      serverLogger.flow('free_content_accessed', {
-        client: 'public',
-        endpoint: req.url,
-        cost: 'FREE',
-        tier: 'PUBLIC'
-      });
-      
-      serverLogger.ui('Free tier request - no payment required');
-    }
-  };
-  
-  res.send = function(data) {
-    logResponse(res.statusCode);
-    return originalSend.call(this, data);
-  };
-  
-  res.json = function(data) {
-    logResponse(res.statusCode);
-    
-    // Only log payment options in verbose/debug mode
-    if (res.statusCode === 402 && data.accepts) {
-      serverLogger.debug('Payment options', {
-        options: data.accepts.map((a: any) => {
-          const amount = a.maxAmountRequired ? (parseInt(a.maxAmountRequired) / 1000000).toFixed(2) : a.price;
-          const currency = a.network === 'base-sepolia' ? 'USDC' : (a.extra?.name || 'tokens');
-          return `${amount} ${currency} on ${a.network}`;
-        })
-      });
-    }
-    
-    return originalJson.call(this, data);
-  };
-  
-  next();
-});
-
-// Basic health check endpoint (free)
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    message: 'Server is running - this endpoint is free!',
-    walletInfo: {
-      server: serverWallet.address,
-      client: clientWallet.address
-    }
-  });
-});
-
-// Free tier endpoint for comparison
-app.get('/free', (req, res) => {
-  res.json({
-    contentTier: 'FREE',
-    message: '📖 Free Content - No Payment Required',
-    subtitle: 'This content is available without any payment',
-    data: {
-      basicInfo: {
-        service: 'X402 Demo API',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        accessLevel: 'PUBLIC'
-      },
-      freeFeatures: [
-        '📊 Basic market data (15-minute delay)',
-        '📈 Simple price charts',
-        '📱 Standard API rate limits',
-        '🔍 Limited search functionality',
-        '⏰ Business hours support only'
-      ],
-      limitations: {
-        updateFrequency: '15 minutes',
-        dataAccuracy: 'Standard',
-        apiCallsPerHour: 10,
-        supportLevel: 'Community forum only',
-        advancedFeatures: 'Not available'
-      },
-      upgradeInfo: {
-        note: 'Want real-time data and AI insights?',
-        upgrade: 'Try the /protected endpoint (requires 0.01 USDC payment)',
-        benefits: 'Unlock premium features, real-time data, and AI analysis'
-      }
-    }
-  });
-});
-
-// X402 payment middleware - configure for protected routes
+// Configure X402 payment middleware for all premium routes
 try {
+  // Build route configurations from modular route definitions
+  const routeConfigs: Record<string, any> = {};
+  
+  for (const route of allRoutes) {
+    if (route.requiresPayment) {
+      routeConfigs[route.path] = {
+        price: route.price,
+        network: route.network || 'base-sepolia',
+        config: {
+          description: route.description || `Access to ${route.path} endpoint`,
+          maxTimeoutSeconds: 60
+        }
+      };
+    }
+  }
+  
+  console.log('🔧 Configuring X402 middleware for routes:', Object.keys(routeConfigs));
+  
   app.use(paymentMiddleware(
     // Server wallet address loaded dynamically from server-wallet-data.json
     serverWallet.address as `0x${string}`,
     
-    // Route configurations
-    {
-      '/protected': {
-        price: '0.01 USDC',
-        network: 'base-sepolia',
-        config: {
-          description: 'Access to protected AI service endpoint',
-          maxTimeoutSeconds: 60
-        }
-      }
-    },
+    // Route configurations from modular route definitions
+    routeConfigs,
     
-    // Use official Coinbase facilitator instead of broken testnet one
+    // Use official Coinbase facilitator
     facilitator
   ));
 } catch (middlewareError: any) {
@@ -363,130 +198,8 @@ try {
   process.exit(1);
 }
 
-// Protected endpoint that requires payment
-app.get('/protected', (req, res) => {
-  try {
-    // Helper to extract client address from x-payment header
-    const getClientFromPayment = (): string => {
-      const xPayment = req.headers['x-payment'] as string;
-      if (!xPayment) return 'unknown';
-      
-      try {
-        // Try to decode as base64 and parse JSON
-        if (/^[A-Za-z0-9+/]*={0,2}$/.test(xPayment)) {
-          const decoded = Buffer.from(xPayment, 'base64').toString('utf-8');
-          const paymentData = JSON.parse(decoded);
-          
-          // X402 payment structure: payload.authorization.from contains the client address
-          if (paymentData?.payload?.authorization?.from) {
-            const clientAddress = paymentData.payload.authorization.from;
-            if (typeof clientAddress === 'string' && clientAddress.startsWith('0x')) {
-              return clientAddress;
-            }
-          }
-          
-          // Fallback: look for other common address fields
-          const possibleAddresses = [
-            paymentData.from,
-            paymentData.payer, 
-            paymentData.sender,
-            paymentData.address,
-            paymentData.wallet,
-            paymentData.account
-          ].filter(addr => addr && typeof addr === 'string' && addr.startsWith('0x'));
-          
-          if (possibleAddresses.length > 0) {
-            return possibleAddresses[0];
-          }
-        }
-        
-        return 'unknown';
-      } catch {
-        return 'unknown';
-      }
-    };
-    
-    // Generate mock premium content to demonstrate value
-    const premiumFeatures = {
-      aiAnalysis: {
-        sentiment: Math.random() > 0.5 ? 'positive' : 'bullish',
-        confidence: (Math.random() * 40 + 60).toFixed(1) + '%',
-        keywords: ['blockchain', 'payments', 'web3', 'fintech'],
-        summary: 'Advanced AI analysis of payment trends and market sentiment'
-      },
-      marketData: {
-        priceHistory: Array.from({length: 5}, (_, i) => ({
-          timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-          price: (Math.random() * 100 + 2000).toFixed(2),
-          volume: Math.floor(Math.random() * 1000000)
-        })),
-        predictiveModel: {
-          nextHour: '+' + (Math.random() * 5).toFixed(2) + '%',
-          accuracy: '87.3%',
-          signals: ['bullish_momentum', 'volume_surge']
-        }
-      },
-      exclusiveContent: {
-        reportId: `PREMIUM-${Date.now()}`,
-        accessLevel: 'GOLD_TIER',
-        contentType: 'Real-time Analytics + AI Insights',
-        remainingCredits: Math.floor(Math.random() * 50 + 10)
-      }
-    };
-
-    res.json({
-      // Payment success indicator
-      paymentVerified: true,
-      contentTier: 'PREMIUM',
-      
-      // Clear messaging
-      message: '🔓 PREMIUM ACCESS GRANTED - Payment Verified',
-      subtitle: 'You have successfully accessed protected content via X402 payment',
-      
-      // Premium content payload
-      data: {
-        // Payment metadata
-        payment: {
-          amount: '0.01 USDC',
-          paidBy: getClientFromPayment(),
-          timestamp: new Date().toISOString(),
-          transactionType: 'X402_MICROPAYMENT'
-        },
-        
-        // Mock premium features that would justify the payment
-        premiumFeatures,
-        
-        // Access metadata
-        access: {
-          contentId: `protected-${Date.now()}`,
-          accessLevel: 'PREMIUM',
-          validUntil: new Date(Date.now() + 3600000).toISOString(), // 1 hour
-          apiCallsRemaining: 99
-        },
-        
-        // Real premium content examples
-        insights: [
-          '📊 Real-time market analysis updated every 30 seconds',
-          '🤖 AI-powered predictions with 87%+ accuracy',
-          '📈 Exclusive trading signals not available on free tier',
-          '🔮 Predictive models based on 10M+ data points',
-          '⚡ Sub-millisecond API response times'
-        ],
-        
-        // Developer-friendly demonstration
-        developer: {
-          note: 'This content required X402 micropayment to access',
-          implementation: 'Automatic payment handled by x402-axios interceptor',
-          cost: '0.01 USDC per request',
-          billing: 'Pay-per-use model - no subscriptions needed'
-        }
-      }
-    });
-  } catch (error: any) {
-    console.error('❌ Error in protected endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Register all modular routes
+registerRoutes(app);
 
 // Enhanced error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -516,14 +229,16 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 
 // 404 handler
 app.use('*', (req, res) => {
+  // Generate available endpoints dynamically from route registry
+  const availableEndpoints = allRoutes.map(route => {
+    const costInfo = route.requiresPayment ? `requires ${route.price} payment` : 'free';
+    return `${route.method.toUpperCase()} ${route.path} (${costInfo})`;
+  });
+  
   res.status(404).json({ 
     error: 'Not found',
     message: `Endpoint ${req.originalUrl} not found`,
-    availableEndpoints: [
-      'GET /health (free)',
-      'GET /free (free - compare with premium)',
-      'GET /protected (requires 0.01 USDC payment)'
-    ]
+    availableEndpoints
   });
 });
 
@@ -533,15 +248,18 @@ const server = app.listen(PORT, () => {
   serverLogger.ui(`Server Wallet: ${serverWallet.address} | Client Wallet: ${clientWallet.address}`);
   serverLogger.separator();
   
+  // Show all available endpoints
+  const endpointSummary = allRoutes.reduce((acc: Record<string, string>, route) => {
+    const costInfo = route.requiresPayment ? route.price : 'free';
+    acc[route.path] = `${route.path} (${costInfo})`;
+    return acc;
+  }, {});
+  
   // Verbose configuration details only in debug mode
   serverLogger.debug('Server configuration', {
     port: PORT,
-    endpoints: {
-      protected: `/protected (0.01 USDC)`,
-      health: `/health (free)`
-    },
+    endpoints: endpointSummary,
     payment: {
-      price: '0.01 USDC',
       network: 'base-sepolia',
       facilitator: 'Coinbase official'
     },
