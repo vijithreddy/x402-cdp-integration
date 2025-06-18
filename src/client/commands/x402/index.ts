@@ -6,10 +6,10 @@
 
 import axios from 'axios';
 import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
-import { toAccount } from 'viem/accounts';
 import { logger } from '../../../shared/utils/logger';
 import type { CommandContext } from '../../types/commands';
 import type { X402EndpointConfig } from './types';
+import { toAccount } from 'viem/accounts';
 
 /**
  * X402 endpoint configurations for all tiers
@@ -73,10 +73,23 @@ export async function createX402Client(context: CommandContext) {
   
   logger.flow('client_init', { action: 'Creating X402-enabled HTTP client' });
   
+  // Get CDP account and client, then create viem account using adapter
+  let cdpAccount, cdpClient;
   try {
-    // Get CDP account and convert to viem account
-    const cdpAccount = await walletManager.getAccountForX402();
-    const viemAccount = toAccount(cdpAccount as any);
+    const accountData = await walletManager.getAccountForX402();
+    cdpAccount = accountData.account;
+    cdpClient = accountData.client;
+    
+    if (!cdpAccount?.address || !cdpClient) {
+      throw new Error('Invalid account or client data');
+    }
+  } catch (accountError) {
+    logger.error('Failed to get account for X402', accountError);
+    throw accountError;
+  }
+  
+  try {
+    const viemAccount = toAccount(cdpAccount);
     
     if (!viemAccount?.address) {
       throw new Error('Failed to create valid viem account');
