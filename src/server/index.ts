@@ -32,7 +32,7 @@ import { paymentMiddleware } from 'x402-express';
 import { facilitator } from '@coinbase/x402';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createLogger, parseLogFlags } from '../shared/utils/logger';
+import { logger, parseLogFlags } from '../shared/utils/logger';
 import { registerRoutes, allRoutes } from './routes';
 import { requestLoggingMiddleware, responseLoggingMiddleware } from './middleware/logging';
 import { securityHeadersMiddleware, requestValidationMiddleware } from './middleware/security';
@@ -47,7 +47,7 @@ dotenv.config();
 
 // Initialize server logger
 const logConfig = parseLogFlags();
-const serverLogger = createLogger(logConfig);
+logger.updateConfig(logConfig);
 
 // Global error handlers
 process.on('uncaughtException', (error) => {
@@ -208,9 +208,10 @@ if (isNaN(Number(PORT)) || Number(PORT) < 1 || Number(PORT) > 65535) {
 
 // Start server with error handling
 const server = app.listen(PORT, () => {
-  serverLogger.header('X402 Payment Server - Base Sepolia', `Listening: http://localhost:${PORT}`);
-  serverLogger.ui(`Server Wallet: ${serverWallet.address} | Client Wallet: ${clientWallet.address}`);
-  serverLogger.separator();
+  logger.info('X402 Payment Server - Base Sepolia');
+  logger.info(`Listening: http://localhost:${PORT}`);
+  logger.ui(`Server Wallet: ${serverWallet.address} | Client Wallet: ${clientWallet.address}`);
+  logger.ui('═══════════════════════════════════════════════════════════');
   
   // Show all available endpoints
   const endpointSummary = allRoutes.reduce((acc: Record<string, string>, route) => {
@@ -220,7 +221,7 @@ const server = app.listen(PORT, () => {
   }, {});
   
   // Verbose configuration details only in debug mode
-  serverLogger.debug('Server configuration', {
+  logger.debug('Server configuration', {
     port: PORT,
     endpoints: endpointSummary,
     payment: {

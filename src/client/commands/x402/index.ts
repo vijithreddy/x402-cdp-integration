@@ -84,7 +84,7 @@ export async function createX402Client(context: CommandContext) {
       throw new Error('Invalid account or client data');
     }
   } catch (accountError) {
-    logger.error('Failed to get account for X402', accountError);
+    logger.error('Failed to get account for X402', { error: accountError as Error });
     throw accountError;
   }
   

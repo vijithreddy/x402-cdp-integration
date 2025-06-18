@@ -6,12 +6,12 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { createLogger, parseLogFlags } from '../../shared/utils/logger';
+import { logger, parseLogFlags } from '../../shared/utils/logger';
 import { getClientFromPayment } from '../utils/payment-parser';
 
 // Initialize server logger
 const logConfig = parseLogFlags();
-const serverLogger = createLogger(logConfig);
+logger.updateConfig(logConfig);
 
 /**
  * Request logging middleware
@@ -25,7 +25,7 @@ export function requestLoggingMiddleware(req: Request, res: Response, next: Next
   
   // Only log request body in debug mode for debugging
   if (req.body && Object.keys(req.body).length > 0) {
-    serverLogger.debug('Request body', req.body);
+    logger.debug('Request body', req.body);
   }
   
   next();
@@ -76,7 +76,7 @@ export function responseLoggingMiddleware(req: Request, res: Response, next: Nex
         paymentClient = `${shortClient} requesting ${contentType}`;
       }
       
-      serverLogger.flow('payment_required', {
+      logger.flow('payment_required', {
         client: paymentClient,
         endpoint: req.url,
         amount: routePrice
@@ -84,7 +84,7 @@ export function responseLoggingMiddleware(req: Request, res: Response, next: Nex
     } else if (statusCode === 200) {
       if (req.url === '/free') {
         // Free content access
-        serverLogger.flow('free_content_accessed', {
+        logger.flow('free_content_accessed', {
           client: 'public',
           endpoint: req.url,
           cost: 'FREE',
@@ -96,14 +96,14 @@ export function responseLoggingMiddleware(req: Request, res: Response, next: Nex
                           req.url === '/premium-plus' ? '0.1 USDC' :
                           req.url === '/enterprise' ? '1.0 USDC' : 'varies';
         
-        serverLogger.transaction('payment_verified', {
+        logger.info('Payment verified', {
           amount: routePrice,
           from: shortClient,
-          to: 'server', // Will be populated with actual server address when available
-          status: 'success' as const
+          to: 'server',
+          status: 'success'
         });
         
-        serverLogger.flow('content_delivered', {
+        logger.flow('content_delivered', {
           client: shortClient,
           status: 'Success'
         });
@@ -121,7 +121,7 @@ export function responseLoggingMiddleware(req: Request, res: Response, next: Nex
     
     // Only log payment options in verbose/debug mode
     if (res.statusCode === 402 && data.accepts) {
-      serverLogger.debug('Payment options', {
+      logger.debug('Payment options', {
         options: data.accepts.map((a: any) => {
           const amount = a.maxAmountRequired ? (parseInt(a.maxAmountRequired) / 1000000).toFixed(2) : a.price;
           const currency = a.network === 'base-sepolia' ? 'USDC' : (a.extra?.name || 'tokens');

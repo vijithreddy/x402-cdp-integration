@@ -14,16 +14,16 @@
 
 import { WalletManager } from './src/shared/utils/walletManager';
 import { CdpClient } from '@coinbase/cdp-sdk';
-import { writeFileSync, existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import dotenv from 'dotenv';
-import { createLogger, parseLogFlags } from './src/shared/utils/logger';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+import { logger, parseLogFlags } from './src/shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 class X402Setup {
-  private logger = createLogger(parseLogFlags());
+  private logger = logger;
 
   constructor() {
     // Validate required environment variables
@@ -87,8 +87,8 @@ class X402Setup {
           }]
         };
 
-        const filepath = join(process.cwd(), filename);
-        writeFileSync(filepath, JSON.stringify(walletData, null, 2));
+        const filepath = path.join(process.cwd(), filename);
+        fs.writeFileSync(filepath, JSON.stringify(walletData, null, 2));
         this.logger.debug('Wallet data saved', { filename, addressCount: walletInfo.addresses.length });
       }
 
@@ -144,8 +144,8 @@ class X402Setup {
         }]
       };
 
-      const filepath = join(process.cwd(), 'server-wallet-data.json');
-      writeFileSync(filepath, JSON.stringify(walletData, null, 2));
+      const filepath = path.join(process.cwd(), 'server-wallet-data.json');
+      fs.writeFileSync(filepath, JSON.stringify(walletData, null, 2));
       this.logger.debug('Server wallet data saved', { filename: 'server-wallet-data.json' });
 
       // For server wallet, balance will be 0 initially (server receives payments)
@@ -202,10 +202,10 @@ class X402Setup {
     this.logger.flow('server_config_update', { address: serverAddress });
     
     try {
-      const serverPath = join(process.cwd(), 'src/server/index.ts');
+      const serverPath = path.join(process.cwd(), 'src/server/index.ts');
       
-      if (existsSync(serverPath)) {
-        let serverContent = readFileSync(serverPath, 'utf-8');
+      if (fs.existsSync(serverPath)) {
+        let serverContent = fs.readFileSync(serverPath, 'utf-8');
         
         // Check if server uses dynamic wallet loading (preferred)
         if (serverContent.includes('serverWallet.address')) {
@@ -218,7 +218,7 @@ class X402Setup {
           
           if (payToRegex.test(serverContent)) {
             serverContent = serverContent.replace(payToRegex, newPayTo);
-            writeFileSync(serverPath, serverContent);
+            fs.writeFileSync(serverPath, serverContent);
             this.logger.success('Server configured to receive payments', { address: serverAddress });
           } else {
             this.logger.warn('Could not auto-update server config', { 
@@ -244,7 +244,7 @@ class X402Setup {
    * Main setup process
    */
   public async run(): Promise<void> {
-    this.logger.header('X402 Wallet Setup', 'Initializing wallets and configuration');
+    this.logger.info('X402 Wallet Setup - Initializing wallets and configuration');
 
     try {
       // Step 1: Create client wallet
@@ -264,8 +264,10 @@ class X402Setup {
       this.updateServerConfig(serverWallet.address);
 
       // Step 5: Setup summary
-      this.logger.ui('\n🎉 Setup Complete!');
-      this.logger.separator();
+      this.logger.info('X402-CDP Integration Setup Complete!');
+      this.logger.info('═══════════════════════════════════════════════════════════');
+      this.logger.ui('🎉 Your wallets are ready for X402 payments!');
+      this.logger.info('═══════════════════════════════════════════════════════════');
       this.logger.ui(`📱 Client Wallet: ${clientWallet.address}`);
       this.logger.ui(`🖥️  Server Wallet: ${serverWallet.address}`);
       this.logger.ui(`💰 Client Balance: Check with 'npm run dev:client' → 'balance'`);
