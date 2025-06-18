@@ -16,7 +16,7 @@
  * - Cache automatically invalidated on errors to ensure data consistency
  */
 
-import { CdpClient } from '@coinbase/cdp-sdk';
+import { CdpClient, EvmServerAccount } from '@coinbase/cdp-sdk';
 import { formatUnits } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,7 +30,7 @@ export class WalletManager {
   private static instance: WalletManager;
   
   // Core wallet state
-  private account: any | null = null;
+  private account: EvmServerAccount | null = null;
   private cdp: CdpClient;
   private config: WalletConfig;
   private walletDataPath: string;
@@ -514,7 +514,7 @@ export class WalletManager {
    * Get account for X402 viem integration
    * Returns both the CDP account and client for the adapter
    */
-  public async getAccountForX402(): Promise<{ account: { address: string; name: string }; client: CdpClient }> {
+  public async getAccountForX402(): Promise<{ account: EvmServerAccount; client: CdpClient }> {
     const account = await this.ensureWalletLoaded();
     return {
       account,

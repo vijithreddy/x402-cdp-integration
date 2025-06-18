@@ -7,10 +7,10 @@
 
 import axios from 'axios';
 import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
-import { createViemAccountFromCDP } from '../../../shared/cdp-viem-adapter';
 import { logger } from '../../../shared/utils/logger';
 import type { CommandContext } from '../../types/commands';
-import type { X402EndpointConfig, X402PaymentResponse } from './types';
+import type { X402EndpointConfig } from './types';
+import { toAccount } from 'viem/accounts';
 
 /**
  * X402 endpoint configurations for all tiers
@@ -90,7 +90,7 @@ export async function createX402Client(context: CommandContext) {
   }
   
   try {
-    const viemAccount = createViemAccountFromCDP(cdpAccount, cdpClient);
+    const viemAccount = toAccount(cdpAccount);
     
     if (!viemAccount?.address) {
       throw new Error('Failed to create valid viem account');
