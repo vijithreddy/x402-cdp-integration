@@ -512,14 +512,10 @@ export class WalletManager {
 
   /**
    * Get account for X402 viem integration
-   * Returns both the CDP account and client for the adapter
+   * Returns the CDP account for viem conversion
    */
-  public async getAccountForX402(): Promise<{ account: { address: string; name: string }; client: CdpClient }> {
-    const account = await this.ensureWalletLoaded();
-    return {
-      account,
-      client: this.cdp
-    };
+  public async getAccountForX402() {
+    return await this.ensureWalletLoaded();
   }
 
   /**

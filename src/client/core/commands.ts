@@ -15,7 +15,8 @@ import { fundCommand } from '../commands/fund';
 import { infoCommand } from '../commands/info';
 import { x402Command } from '../commands/x402';
 import { freeCommand } from '../commands/free';
-// Import X402 tier commands
+
+// Import X402 tier commands from barrel file
 import { tier1Command } from '../commands/x402/tier1';
 import { tier2Command } from '../commands/x402/tier2';
 import { tier3Command } from '../commands/x402/tier3';
@@ -24,13 +25,17 @@ import { tier3Command } from '../commands/x402/tier3';
  * Registry of all available commands
  */
 const commandRegistry: CLICommand[] = [
+  // Help & Information
   helpCommand,
+  
+  // Wallet Operations
   balanceCommand,
   fundCommand,
   infoCommand,
+  
+  // X402 Testing
   x402Command,
   freeCommand,
-  // X402 payment tier commands
   tier1Command,
   tier2Command,
   tier3Command

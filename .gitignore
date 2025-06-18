@@ -117,4 +117,7 @@ Desktop.ini
 test-results/
 
 # Debug files
-debug.log 
+debug.log
+
+# Test files
+src/client/x402-light-test.ts 

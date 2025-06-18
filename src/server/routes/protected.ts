@@ -70,6 +70,8 @@ function getClientFromPayment(req: Request): string {
  */
 function protectedHandler(req: Request, res: Response): void {
   try {
+    // At this point, payment is already verified by the middleware.
+    // Just serve the premium content.
     const premiumFeatures = generatePremiumContent();
     const clientAddress = getClientFromPayment(req);
 

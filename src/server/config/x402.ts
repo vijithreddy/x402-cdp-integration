@@ -33,10 +33,23 @@ export function configureX402Middleware(app: Express, serverWalletAddress: strin
             description: 'Access to protected AI service endpoint',
             maxTimeoutSeconds: 60           // Payment timeout
           }
+        },
+        '/premium-plus': {
+          price: '0.1 USDC',               // Cost per request
+          network: 'base-sepolia',          // Testnet for development
+          config: {
+            description: 'Premium Plus features with advanced AI models',
+            maxTimeoutSeconds: 60           // Payment timeout
+          }
+        },
+        '/enterprise': {
+          price: '1.0 USDC',               // Cost per request
+          network: 'base-sepolia',          // Testnet for development
+          config: {
+            description: 'Enterprise features with institutional data',
+            maxTimeoutSeconds: 60           // Payment timeout
+          }
         }
-        // Add more protected routes here as needed:
-        // '/premium-api': { price: '0.05 USDC', network: 'base-sepolia' },
-        // '/enterprise': { price: '0.1 USDC', network: 'base-sepolia' }
       },
       
       // Use official Coinbase facilitator for payment processing
@@ -73,6 +86,21 @@ export const ROUTE_CONFIGS: Record<string, X402RouteConfig> = {
       description: 'Premium AI-powered content with real-time analysis',
       maxTimeoutSeconds: 60
     }
+  },
+  '/premium-plus': {
+    price: '0.1 USDC',
+    network: 'base-sepolia',
+    config: {
+      description: 'Premium Plus features with advanced AI models',
+      maxTimeoutSeconds: 60
+    }
+  },
+  '/enterprise': {
+    price: '1.0 USDC',
+    network: 'base-sepolia',
+    config: {
+      description: 'Enterprise features with institutional data',
+      maxTimeoutSeconds: 60
+    }
   }
-  // Add more route configurations here
 }; 

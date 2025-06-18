@@ -1,100 +1,141 @@
 /**
  * Free Command Module
  * 
- * Tests the free endpoint to demonstrate what users get WITHOUT paying.
- * Creates clear contrast with premium content for educational purposes.
+ * Accesses the free endpoint without requiring payment.
+ * Demonstrates basic API access and response handling.
+ * 
+ * Error Codes:
+ * - FREE_001: Failed to create HTTP client
+ * - FREE_002: Failed to access free endpoint
+ * - FREE_003: Invalid response format
+ * - FREE_004: Network error
+ * - FREE_005: Server error
  */
 
-import axios from 'axios';
 import type { CLICommand, CommandContext } from '../types/commands';
 import { displayError } from '../utils/display';
 import { logger } from '../../shared/utils/logger';
+import axios from 'axios';
+
+// Custom error type for free endpoint operations
+interface FreeEndpointError extends Error {
+  code: string;
+  status?: number;
+}
 
 /**
- * Free endpoint test command implementation
+ * Free command implementation
+ * 
+ * @param args - Command arguments (unused)
+ * @param context - Command context with wallet manager
+ * @throws {FreeEndpointError} FREE_001: Failed to create HTTP client
+ * @throws {FreeEndpointError} FREE_002: Failed to access free endpoint
+ * @throws {FreeEndpointError} FREE_003: Invalid response format
+ * @throws {FreeEndpointError} FREE_004: Network error
+ * @throws {FreeEndpointError} FREE_005: Server error
  */
 export const freeCommand: CLICommand = {
   name: 'free',
   aliases: [],
-  description: 'Test free endpoint for comparison (no payment required)',
+  description: 'Access the free endpoint without payment',
   usage: 'free',
   
   async execute(args: string[], context: CommandContext): Promise<void> {
     try {
-      logger.header('Free Content Test', 'Testing free endpoint access');
-      
-      logger.flow('request', { 
-        action: 'Accessing free content', 
-        endpoint: '/free',
-        payment: 'NOT REQUIRED' 
+      // Log free endpoint access attempt
+      logger.flow('free_endpoint', {
+        action: 'Accessing free endpoint',
+        timestamp: new Date().toISOString()
       });
-      
-      // Simple axios request - no payment interceptor needed
-      const response = await axios.get('http://localhost:3000/free', {
-        timeout: 10000
-      });
-      
-      if (response.data) {
-        logger.ui('\n📖 FREE CONTENT ACCESSED');
-        logger.ui('═══════════════════════════════════════════════════════════');
+
+      // Create HTTP client
+      let client;
+      try {
+        client = axios.create({
+          baseURL: 'http://localhost:3000',
+          timeout: 10000
+        });
+      } catch (clientError) {
+        const error = new Error('Failed to create HTTP client') as FreeEndpointError;
+        error.code = 'FREE_001';
+        throw error;
+      }
+
+      // Access free endpoint
+      try {
+        logger.ui('\n🔓 Accessing free endpoint...');
+        const response = await client.get('/free');
         
-        if (response.data.message) {
-          logger.ui(`📢 ${response.data.message}`);
+        // Validate response format
+        if (!response.data || typeof response.data !== 'object') {
+          const error = new Error('Invalid response format from free endpoint') as FreeEndpointError;
+          error.code = 'FREE_003';
+          throw error;
         }
-        
+
+        // Display response
+        if (response.data.message) {
+          logger.ui(`\n📢 ${response.data.message}`);
+        }
         if (response.data.subtitle) {
           logger.ui(`   ${response.data.subtitle}`);
         }
+
+        // Log successful access
+        logger.flow('free_success', {
+          action: 'Accessed free endpoint',
+          status: response.status,
+          timestamp: new Date().toISOString()
+        });
+      } catch (requestError: any) {
+        // Handle different types of request errors
+        const error = new Error('Failed to access free endpoint') as FreeEndpointError;
         
-        const data = response.data.data;
-        if (data) {
-          // Basic Info
-          if (data.basicInfo) {
-            logger.ui('\n📋 Basic Information:');
-            logger.ui(`   Service: ${data.basicInfo.service}`);
-            logger.ui(`   Version: ${data.basicInfo.version}`);
-            logger.ui(`   Access Level: ${data.basicInfo.accessLevel}`);
-          }
-          
-          // Free Features
-          if (data.freeFeatures && data.freeFeatures.length > 0) {
-            logger.ui('\n🆓 What You Get For Free:');
-            data.freeFeatures.forEach((feature: string) => {
-              logger.ui(`   ${feature}`);
-            });
-          }
-          
-          // Limitations
-          if (data.limitations) {
-            logger.ui('\n⚠️  Limitations of Free Tier:');
-            logger.ui(`   Update Frequency: ${data.limitations.updateFrequency}`);
-            logger.ui(`   Data Accuracy: ${data.limitations.dataAccuracy}`);
-            logger.ui(`   API Calls/Hour: ${data.limitations.apiCallsPerHour}`);
-            logger.ui(`   Support: ${data.limitations.supportLevel}`);
-            logger.ui(`   Advanced Features: ${data.limitations.advancedFeatures}`);
-          }
-          
-          // Upgrade Information
-          if (data.upgradeInfo) {
-            logger.ui('\n💡 Want More?');
-            logger.ui(`   ${data.upgradeInfo.note}`);
-            logger.ui(`   ${data.upgradeInfo.upgrade}`);
-            logger.ui(`   Benefits: ${data.upgradeInfo.benefits}`);
-          }
+        if (requestError.code === 'ECONNREFUSED' || requestError.code === 'ENOTFOUND') {
+          error.code = 'FREE_004';
+          error.message = 'Network error: Cannot connect to server';
+          logger.ui('💡 Make sure the server is running: npm run dev:server');
+        } else if (requestError.response) {
+          error.code = 'FREE_005';
+          error.status = requestError.response.status;
+          error.message = `Server error: ${requestError.response.status}`;
+        } else {
+          error.code = 'FREE_002';
         }
         
-        logger.ui('\n🆓 This content was FREE - no payment required!');
-        logger.ui('   Compare this with the "test" command to see premium features.');
+        throw error;
       }
-      
-      logger.separator();
-      
-    } catch (error: any) {
-      if (error.code === 'ECONNREFUSED') {
-        displayError('Cannot connect to server at http://localhost:3000');
-        logger.ui('💡 Make sure the server is running: npm run dev:server');
+    } catch (caughtError: unknown) {
+      if (caughtError instanceof Error) {
+        // If it's not already a FreeEndpointError, wrap it
+        if (!('code' in caughtError)) {
+          const freeError = new Error('Failed to access free endpoint') as FreeEndpointError;
+          freeError.code = 'FREE_002';
+          displayError('Failed to access free endpoint', freeError);
+          logger.error('Free endpoint access failed', {
+            error: freeError.message,
+            code: freeError.code,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          displayError('Failed to access free endpoint', caughtError);
+          logger.error('Free endpoint access failed', {
+            error: caughtError.message,
+            code: (caughtError as FreeEndpointError).code,
+            status: (caughtError as FreeEndpointError).status,
+            timestamp: new Date().toISOString()
+          });
+        }
       } else {
-        displayError('Error during free endpoint test', error);
+        // Handle unknown error type
+        const freeError = new Error('Unknown error occurred') as FreeEndpointError;
+        freeError.code = 'FREE_002';
+        displayError('Failed to access free endpoint', freeError);
+        logger.error('Free endpoint access failed', {
+          error: 'Unknown error',
+          code: freeError.code,
+          timestamp: new Date().toISOString()
+        });
       }
     }
   }

@@ -1,8 +1,7 @@
 /**
  * X402 Payment Command Types
  * 
- * Shared type definitions for all X402 payment tier commands.
- * Defines the structure of payment responses and content tiers.
+ * Shared type definitions for X402 payment commands.
  */
 
 /**
@@ -42,78 +41,6 @@ export interface AccessInfo {
 }
 
 /**
- * AI analysis data structure
- */
-export interface AIAnalysis {
-  sentiment: string;
-  confidence: string;
-  keywords: string[];
-  summary: string;
-  modelVersion?: string;
-  riskAssessment?: {
-    score: string;
-    factors: string[];
-    recommendation: string;
-  };
-}
-
-/**
- * Market data structure
- */
-export interface MarketData {
-  priceHistory: Array<{
-    timestamp: string;
-    price: string;
-    volume: number;
-  }>;
-  predictiveModel: {
-    nextHour: string;
-    accuracy: string;
-    signals: string[];
-  };
-  institutionalData?: {
-    volumeProfile: string;
-    liquidityScore: string;
-    institutionalFlow: string;
-  };
-}
-
-/**
- * Exclusive content structure
- */
-export interface ExclusiveContent {
-  reportId: string;
-  accessLevel: string;
-  contentType: string;
-  remainingCredits: number;
-  customInsights?: string[];
-  exclusiveReports?: Array<{
-    id: string;
-    title: string;
-    confidenceLevel: string;
-  }>;
-}
-
-/**
- * Premium features container
- */
-export interface PremiumFeatures {
-  aiAnalysis: AIAnalysis;
-  marketData: MarketData;
-  exclusiveContent: ExclusiveContent;
-}
-
-/**
- * Developer information
- */
-export interface DeveloperInfo {
-  note: string;
-  implementation: string;
-  cost: string;
-  billing: string;
-}
-
-/**
  * Complete X402 payment response structure
  */
 export interface X402PaymentResponse {
@@ -123,9 +50,7 @@ export interface X402PaymentResponse {
   subtitle: string;
   data: {
     payment: PaymentDetails;
-    premiumFeatures: PremiumFeatures;
     access: AccessInfo;
     insights: string[];
-    developer: DeveloperInfo;
   };
 } 

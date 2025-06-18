@@ -35,6 +35,12 @@ import * as path from 'path';
 import { createLogger, parseLogFlags } from '../shared/utils/logger';
 import { registerRoutes, allRoutes } from './routes';
 import { requestLoggingMiddleware, responseLoggingMiddleware } from './middleware/logging';
+import { securityHeadersMiddleware, requestValidationMiddleware } from './middleware/security';
+import { configureX402Middleware } from './config/x402';
+import { healthRoute } from './routes/health';
+import { protectedRoute } from './routes/protected';
+import { premiumPlusRoute } from './routes/premium-plus';
+import { enterpriseRoute } from './routes/enterprise';
 
 // Load environment variables
 dotenv.config();
@@ -134,7 +140,64 @@ function loadClientWallet(): { address: string; name: string } {
   return { address: 'Not configured', name: 'Unknown' };
 }
 
+// Initialize Express app
 const app = express();
+
+// Load wallet configurations
+const serverWallet = loadServerWallet();
+const clientWallet = loadClientWallet();
+
+// Apply security headers
+app.use(securityHeadersMiddleware);
+
+// Apply request validation
+app.use(requestValidationMiddleware);
+
+// Apply logging middleware
+app.use(requestLoggingMiddleware);
+app.use(responseLoggingMiddleware);
+
+// Register X402 payment middleware BEFORE any route handlers
+app.use(paymentMiddleware(
+  serverWallet.address as `0x${string}`,
+  {
+    '/protected': {
+      price: '0.01 USDC',
+      network: 'base-sepolia',
+      config: {
+        description: 'Access to protected AI service endpoint',
+        maxTimeoutSeconds: 60
+      }
+    },
+    '/premium-plus': {
+      price: '0.1 USDC',
+      network: 'base-sepolia',
+      config: {
+        description: 'Premium Plus features with advanced AI models',
+        maxTimeoutSeconds: 60
+      }
+    },
+    '/enterprise': {
+      price: '1.0 USDC',
+      network: 'base-sepolia',
+      config: {
+        description: 'Enterprise features with institutional data',
+        maxTimeoutSeconds: 60
+      }
+    }
+  },
+  facilitator
+));
+
+// Register all routes AFTER middleware
+registerRoutes(app);
+
+// Register specific routes
+app.get(healthRoute.path, healthRoute.handler);
+app.get(protectedRoute.path, protectedRoute.handler);
+app.get(premiumPlusRoute.path, premiumPlusRoute.handler);
+app.get(enterpriseRoute.path, enterpriseRoute.handler);
+
 const PORT = process.env.PORT || 3000;
 
 // Validate port
@@ -142,105 +205,6 @@ if (isNaN(Number(PORT)) || Number(PORT) < 1 || Number(PORT) > 65535) {
   console.error('❌ Invalid PORT value. Must be a number between 1-65535');
   process.exit(1);
 }
-
-// Load wallet configurations
-const serverWallet = loadServerWallet();
-const clientWallet = loadClientWallet();
-
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  next();
-});
-
-// Middleware for parsing JSON with size limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Apply logging middleware
-app.use(requestLoggingMiddleware);
-app.use(responseLoggingMiddleware);
-
-// Configure X402 payment middleware for all premium routes
-try {
-  // Build route configurations from modular route definitions
-  const routeConfigs: Record<string, any> = {};
-  
-  for (const route of allRoutes) {
-    if (route.requiresPayment) {
-      routeConfigs[route.path] = {
-        price: route.price,
-        network: route.network || 'base-sepolia',
-        config: {
-          description: route.description || `Access to ${route.path} endpoint`,
-          maxTimeoutSeconds: 60
-        }
-      };
-    }
-  }
-  
-  console.log('🔧 Configuring X402 middleware for routes:', Object.keys(routeConfigs));
-  
-  app.use(paymentMiddleware(
-    // Server wallet address loaded dynamically from server-wallet-data.json
-    serverWallet.address as `0x${string}`,
-    
-    // Route configurations from modular route definitions
-    routeConfigs,
-    
-    // Use official Coinbase facilitator
-    facilitator
-  ));
-} catch (middlewareError: any) {
-  console.error('❌ Failed to initialize X402 middleware:', middlewareError.message);
-  process.exit(1);
-}
-
-// Register all modular routes
-registerRoutes(app);
-
-// Enhanced error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('❌ Server error:', err);
-  
-  // Handle specific error types
-  if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ 
-      error: 'Invalid JSON format',
-      message: 'Request body contains invalid JSON' 
-    });
-  }
-  
-  if (err.type === 'entity.too.large') {
-    return res.status(413).json({ 
-      error: 'Request too large',
-      message: 'Request body exceeds size limit' 
-    });
-  }
-  
-  // Generic error response
-  res.status(err.status || 500).json({ 
-    error: 'Internal server error',
-    message: err.message || 'An unexpected error occurred'
-  });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-  // Generate available endpoints dynamically from route registry
-  const availableEndpoints = allRoutes.map(route => {
-    const costInfo = route.requiresPayment ? `requires ${route.price} payment` : 'free';
-    return `${route.method.toUpperCase()} ${route.path} (${costInfo})`;
-  });
-  
-  res.status(404).json({ 
-    error: 'Not found',
-    message: `Endpoint ${req.originalUrl} not found`,
-    availableEndpoints
-  });
-});
 
 // Start server with error handling
 const server = app.listen(PORT, () => {
@@ -268,6 +232,12 @@ const server = app.listen(PORT, () => {
       client: clientWallet.address
     }
   });
+
+  console.log('📝 Available endpoints:');
+  console.log(`   GET ${healthRoute.path} - ${healthRoute.description}`);
+  console.log(`   GET ${protectedRoute.path} - ${protectedRoute.description}`);
+  console.log(`   GET ${premiumPlusRoute.path} - ${premiumPlusRoute.description}`);
+  console.log(`   GET ${enterpriseRoute.path} - ${enterpriseRoute.description}`);
 });
 
 // Graceful shutdown handling

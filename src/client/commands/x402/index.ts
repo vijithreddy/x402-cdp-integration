@@ -1,16 +1,15 @@
 /**
  * X402 Shared Utilities
  * 
- * Common functions and utilities used by all X402 payment tier commands.
- * Provides consistent payment handling, balance checking, and response display.
+ * Common functions and utilities used by X402 payment commands.
  */
 
 import axios from 'axios';
 import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
-import { createViemAccountFromCDP } from '../../../shared/cdp-viem-adapter';
+import { toAccount } from 'viem/accounts';
 import { logger } from '../../../shared/utils/logger';
 import type { CommandContext } from '../../types/commands';
-import type { X402EndpointConfig, X402PaymentResponse } from './types';
+import type { X402EndpointConfig } from './types';
 
 /**
  * X402 endpoint configurations for all tiers
@@ -74,57 +73,40 @@ export async function createX402Client(context: CommandContext) {
   
   logger.flow('client_init', { action: 'Creating X402-enabled HTTP client' });
   
-  // Get CDP account and client, then create viem account using adapter
-  let cdpAccount, cdpClient;
   try {
-    const accountData = await walletManager.getAccountForX402();
-    cdpAccount = accountData.account;
-    cdpClient = accountData.client;
-    
-    if (!cdpAccount?.address || !cdpClient) {
-      throw new Error('Invalid account or client data');
-    }
-  } catch (accountError) {
-    logger.error('Failed to get account for X402', accountError);
-    throw accountError;
-  }
-  
-  try {
-    const viemAccount = createViemAccountFromCDP(cdpAccount, cdpClient);
+    // Get CDP account and convert to viem account
+    const cdpAccount = await walletManager.getAccountForX402();
+    const viemAccount = toAccount(cdpAccount as any);
     
     if (!viemAccount?.address) {
       throw new Error('Failed to create valid viem account');
     }
     
     logger.ui(`Wallet: ${viemAccount.address}`);
-    logger.debug('Viem account created successfully', { 
-      address: viemAccount.address,
-      hasSignTypedData: typeof viemAccount.signTypedData === 'function'
-    });
     
-    // Create X402-enabled axios client with facilitator configuration
+    // Create X402-enabled axios client with payment interceptor
     const api = withPaymentInterceptor(
       axios.create({
         baseURL: 'http://localhost:3000',
         timeout: 60000, // Increased timeout for payment processing
       }),
-      viemAccount
+      viemAccount as any
     );
     
     return { api, viemAccount };
-  } catch (conversionError) {
-    logger.error('Failed to create X402 client', conversionError);
-    throw conversionError;
+  } catch (error) {
+    logger.error('Failed to create X402 client', { error: error as Error });
+    throw error;
   }
 }
 
 /**
- * Display premium content response in a consistent format
+ * Display premium content response in a simple format
  */
 export function displayPremiumContent(response: any, config: X402EndpointConfig): void {
   if (!response.data) return;
   
-  logger.ui(`\n🔓 ${config.tierName.toUpperCase()} CONTENT ACCESSED`);
+  logger.ui(`\n${config.tierName.toUpperCase()} CONTENT ACCESSED`);
   logger.ui('═══════════════════════════════════════════════════════════');
   
   // Payment verification status
@@ -160,87 +142,13 @@ export function displayPremiumContent(response: any, config: X402EndpointConfig)
     logger.ui(`   API Calls Remaining: ${data.access.apiCallsRemaining}`);
   }
   
-  // Premium Features Demo
-  if (data.premiumFeatures) {
-    logger.ui(`\n🚀 ${config.tierName} Features Unlocked:`);
-    
-    // AI Analysis
-    if (data.premiumFeatures.aiAnalysis) {
-      const ai = data.premiumFeatures.aiAnalysis;
-      logger.ui(`   🤖 AI Analysis: ${ai.sentiment} (${ai.confidence} confidence)`);
-      if (ai.modelVersion) {
-        logger.ui(`      Model: ${ai.modelVersion}`);
-      }
-      logger.ui(`      Keywords: ${ai.keywords.join(', ')}`);
-      logger.ui(`      Summary: ${ai.summary}`);
-      
-      // Advanced features for higher tiers
-      if (ai.riskAssessment) {
-        logger.ui(`      🎯 Risk Score: ${ai.riskAssessment.score}`);
-        logger.ui(`      📋 Risk Factors: ${ai.riskAssessment.factors.join(', ')}`);
-        logger.ui(`      💡 Recommendation: ${ai.riskAssessment.recommendation}`);
-      }
-    }
-    
-    // Market Data
-    if (data.premiumFeatures.marketData) {
-      const market = data.premiumFeatures.marketData;
-      logger.ui(`   📊 Market Prediction: ${market.predictiveModel.nextHour} (${market.predictiveModel.accuracy} accuracy)`);
-      logger.ui(`   📈 Signals: ${market.predictiveModel.signals.join(', ')}`);
-      logger.ui(`   📋 Price History: ${market.priceHistory.length} data points available`);
-      
-      // Enterprise features for tier 3
-      if (market.institutionalData) {
-        logger.ui(`   🏛️  Volume Profile: ${market.institutionalData.volumeProfile}`);
-        logger.ui(`   💧 Liquidity Score: ${market.institutionalData.liquidityScore}`);
-        logger.ui(`   🌊 Institutional Flow: ${market.institutionalData.institutionalFlow}`);
-      }
-    }
-    
-    // Exclusive Content
-    if (data.premiumFeatures.exclusiveContent) {
-      const exclusive = data.premiumFeatures.exclusiveContent;
-      logger.ui(`   ⭐ Report ID: ${exclusive.reportId}`);
-      logger.ui(`   🏆 Tier: ${exclusive.accessLevel}`);
-      logger.ui(`   📊 Content Type: ${exclusive.contentType}`);
-      logger.ui(`   💳 Remaining Credits: ${exclusive.remainingCredits}`);
-      
-      // Custom insights for higher tiers
-      if (exclusive.customInsights && exclusive.customInsights.length > 0) {
-        logger.ui(`   🎨 Custom Insights:`);
-        exclusive.customInsights.forEach((insight: string) => {
-          logger.ui(`      • ${insight}`);
-        });
-      }
-      
-      // Exclusive reports for enterprise tier
-      if (exclusive.exclusiveReports && exclusive.exclusiveReports.length > 0) {
-        logger.ui(`   📑 Exclusive Reports:`);
-        exclusive.exclusiveReports.forEach((report: any) => {
-          logger.ui(`      • ${report.title} (${report.confidenceLevel} confidence)`);
-        });
-      }
-    }
-  }
-  
-  // Value Proposition
+  // Insights
   if (data.insights && data.insights.length > 0) {
     logger.ui(`\n💎 ${config.tierName} Features You're Now Accessing:`);
     data.insights.forEach((insight: string) => {
       logger.ui(`   ${insight}`);
     });
   }
-  
-  // Developer Information
-  if (data.developer) {
-    logger.ui('\n🛠️  Developer Information:');
-    logger.ui(`   ${data.developer.note}`);
-    logger.ui(`   Implementation: ${data.developer.implementation}`);
-    logger.ui(`   Cost Model: ${data.developer.cost} - ${data.developer.billing}`);
-  }
-  
-  logger.ui(`\n🎉 This ${config.tierName} content was protected by X402 and required payment to access!`);
-  logger.ui('   Without payment, you would have received a 402 Payment Required error.');
 }
 
 /**
@@ -258,26 +166,32 @@ export async function handlePaymentCompletion(
   const xPaymentResponse = response.headers['x-payment-response'];
   if (xPaymentResponse) {
     try {
+      // Decode the X402 payment response header
       const paymentResponse = decodeXPaymentResponse(xPaymentResponse);
-      logger.transaction('payment_complete', {
+      
+      // Log transaction details
+      logger.info('Payment completed', {
         amount: 'Dynamically discovered via X402',
         from: viemAccount.address,
-        to: response.data?.userAddress || 'Server',
+        to: paymentResponse?.payer || response.data?.userAddress || 'Server',
         txHash: paymentResponse?.transaction,
         network: paymentResponse?.network || 'base-sepolia',
         duration: parseFloat(duration),
-        status: 'success' as const
+        status: 'success'
       });
       
+      // Display transaction details to user
       if (paymentResponse?.transaction) {
         logger.ui(`Transaction: ${paymentResponse.transaction}`);
+        logger.ui(`Network: ${paymentResponse.network}`);
+        logger.ui(`Payer: ${paymentResponse.payer}`);
       }
     } catch (decodeError) {
-      logger.debug('Could not decode payment response', decodeError);
-      logger.transaction('payment_complete', {
+      logger.debug('Could not decode payment response', { error: decodeError as Error });
+      logger.info('Payment completed', {
         amount: 'Dynamically discovered via X402',
         duration: parseFloat(duration),
-        status: 'success' as const
+        status: 'success'
       });
     }
     
@@ -289,7 +203,7 @@ export async function handlePaymentCompletion(
       const balanceChange = (initialBalance - newBalance).toFixed(6);
       logger.ui(`Updated Balance: ${newBalance} USDC (-${balanceChange})`);
     } catch (balanceError) {
-      logger.warn('Could not refresh balance after payment', balanceError);
+      logger.warn('Could not refresh balance after payment', { error: balanceError as Error });
     }
   } else {
     logger.ui('ℹ️ No payment was required');
@@ -340,4 +254,9 @@ export function handleX402Error(error: any, config: X402EndpointConfig): void {
       logger.debug('Response data', typedError.response.data);
     }
   }
-} 
+}
+
+// Re-export tier commands
+export { tier1Command } from './tier1';
+export { tier2Command } from './tier2';
+export { tier3Command } from './tier3'; 
