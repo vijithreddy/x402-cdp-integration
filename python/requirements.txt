@@ -1,0 +1,11 @@
+cdp-sdk
+click
+python-dotenv
+rich
+typer
+pydantic
+fastapi
+uvicorn[standard]
+requests
+x402
+eth-account 

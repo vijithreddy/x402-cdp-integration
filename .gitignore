@@ -120,4 +120,4 @@ test-results/
 debug.log
 
 # Test files
-src/client/x402-light-test.ts 
+src/client/x402-light-test.ts python/devtools/

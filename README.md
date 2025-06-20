@@ -5,21 +5,28 @@ A **X402 micropayment system** with modular architecture, comprehensive logging,
 ## 🚀 **Quick Start**
 
 ```bash
-# 1. Clone and install
+# 1. Clone the repository
 git clone git@github.com:vijithreddy/x402-cdp-integration.git
 cd x402-cdp-integration
-npm install
 
 # 2. Setup environment (.env file)
-cp .env.example .env
-# Add your CDP API credentials to .env
+cp .env-example .env
+# Edit .env with your CDP API credentials:
+# CDP_API_KEY_ID=your_api_key_id
+# CDP_API_KEY_SECRET=your_api_key_secret
+# CDP_WALLET_SECRET=your_wallet_secret
 
-# 3. One-command setup (creates wallets automatically)
-npm run setup
+# 3. Copy .env to language folders and install dependencies
+npm run setup          # Copies .env to typescript/ and python/
+npm run setup:ts       # Install TypeScript dependencies
+npm run setup:py       # Install Python dependencies
 
-# 4. Start testing X402 payments
-npm run dev:server  # Terminal 1: Payment server
-npm run dev:client  # Terminal 2: Interactive CLI
+# 4. (Optional) Setup wallets for testing
+cd typescript && npm run setup  # Creates and funds test wallets
+
+# 5. Start testing X402 payments
+npm run ts:server  # Terminal 1: TypeScript payment server
+npm run ts:client  # Terminal 2: TypeScript interactive CLI
 ```
 
 ## 🎮 **Interactive CLI Features**
@@ -379,9 +386,9 @@ npm run clean          # Remove generated files
 Create `.env` file:
 ```bash
 # Required: CDP API Credentials
-CDP_API_KEY_ID=your_api_key_id_here
-CDP_API_KEY_SECRET=your_private_key_here
-CDP_WALLET_SECRET=your_wallet_secret_here
+CDP_API_KEY_ID=your_api_key_id
+CDP_API_KEY_SECRET=your_api_key_secret
+CDP_WALLET_SECRET=your_wallet_secret
 
 # Optional: Server Configuration
 PORT=3000
@@ -432,4 +439,47 @@ LOG_LEVEL=info
 **Built with ❤️ for the X402 developer community**
 
 *Perfect for hackathons, learning, and building the future of micropayments*
+
+## 🏗️ **Monorepo Structure**
+
+```
+x402-cdp-integration/
+├── .env                    # Shared environment variables
+├── .env-example           # Environment template
+├── package.json           # Root scripts and metadata
+├── typescript/            # TypeScript implementation
+│   ├── package.json
+│   ├── src/
+│   │   ├── client/        # Interactive CLI
+│   │   ├── server/        # Payment server
+│   │   └── shared/        # Shared utilities
+│   └── setup.ts           # Wallet setup script
+└── python/                # Python implementation (coming soon)
+    ├── requirements.txt
+    └── src/
+        ├── client/
+        ├── server/
+        └── shared/
+```
+
+## 📦 **Available Commands**
+
+### **Root Level (from x402-cdp-integration/)**
+```bash
+npm run setup          # Copy .env to language folders
+npm run setup:ts       # Install TypeScript dependencies
+npm run setup:py       # Install Python dependencies
+npm run ts:client      # Start TypeScript CLI
+npm run ts:server      # Start TypeScript server
+npm run ts:setup       # Setup TypeScript wallets
+```
+
+### **TypeScript (from typescript/)**
+```bash
+npm run setup          # Create and fund test wallets
+npm run dev:client     # Start interactive CLI
+npm run dev:server     # Start payment server
+npm run build          # Build TypeScript code
+npm run test           # Run tests
+```
 
