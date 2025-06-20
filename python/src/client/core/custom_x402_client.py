@@ -170,7 +170,7 @@ class CustomX402Client:
                 "from": self.signer.address,
                 "to": recipient,
                 "value": amount,
-                "validAfter": str(current_time),
+                "validAfter": str(current_time - 30),  # 30 seconds in the past to avoid race condition
                 "validBefore": str(deadline),
                 "nonce": nonce
             }
@@ -242,7 +242,7 @@ class CustomX402Client:
                         "from": self.signer.address,  # This will be converted to "from_" by the library
                         "to": recipient,
                         "value": amount,
-                        "validAfter": str(current_time),  # This will be converted to "valid_after" by the library
+                        "validAfter": str(current_time - 30),  # 30 seconds in the past to avoid race condition
                         "validBefore": str(deadline),  # This will be converted to "valid_before" by the library
                         "nonce": nonce
                     }
