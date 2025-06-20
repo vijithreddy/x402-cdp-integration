@@ -6,6 +6,7 @@ Handles health check and status monitoring endpoints.
 
 from fastapi import APIRouter
 from ...shared.utils.logger import logger
+from ...shared.config import config
 from ..config import wallet_config
 
 router = APIRouter()
@@ -19,11 +20,14 @@ async def health_check():
     Returns:
         Server health status and basic information
     """
-    logger.info("🏥 HEALTH CHECK REQUESTED")
+    logger.debug("🏥 HEALTH CHECK REQUESTED")
     
     try:
         # Get wallet info for health check
         receiving_address = wallet_config.get_receiving_address()
+        
+        # Get facilitator URL from config
+        facilitator_url = config.get_x402_config().get("facilitator_url", "https://x402.org/facilitator")
         
         return {
             "status": "healthy",
@@ -35,7 +39,7 @@ async def health_check():
             },
             "x402": {
                 "enabled": True,
-                "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402"
+                "facilitator": facilitator_url
             }
         }
     except Exception as e:
@@ -55,7 +59,7 @@ async def status():
     Returns:
         Detailed server status information
     """
-    logger.info("📊 STATUS REQUESTED")
+    logger.debug("📊 STATUS REQUESTED")
     
     try:
         wallet_config_data = wallet_config.load()

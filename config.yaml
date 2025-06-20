@@ -1,0 +1,30 @@
+# X402 CDP Integration Configuration
+# This file contains centralized configuration for both Python and TypeScript servers
+
+# Server configurations
+servers:
+  python:
+    port: 5001
+    log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+    host: "localhost"
+    
+  typescript:
+    port: 5002
+    log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+    host: "localhost"
+
+# X402 configuration
+x402:
+  facilitator_url: "https://x402.org/facilitator"
+  network: "base-sepolia"
+  scheme: "exact"
+
+# Client configurations
+clients:
+  python:
+    log_level: "INFO"
+    verbose: false
+    
+  typescript:
+    log_level: "INFO"
+    verbose: false 

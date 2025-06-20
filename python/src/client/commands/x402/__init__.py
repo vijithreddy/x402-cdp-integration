@@ -144,7 +144,104 @@ def display_premium_content(response_data: Dict[str, Any], config: X402EndpointC
     if response_data.get('subtitle'):
         logger.ui(f"   {response_data['subtitle']}")
     
-    # Display tier information
+    # Display rich content from data field
+    if response_data.get('data'):
+        data = response_data['data']
+        
+        # Payment details
+        if data.get('payment'):
+            payment = data['payment']
+            logger.ui(f"\n💳 Payment Details:")
+            logger.ui(f"   Amount: {payment.get('amount', 'N/A')}")
+            logger.ui(f"   Paid By: {payment.get('paidBy', 'N/A')}")
+            logger.ui(f"   Transaction: {payment.get('transactionType', 'N/A')}")
+        
+        # AI Analysis (for protected/premium tiers)
+        if data.get('premiumFeatures', {}).get('aiAnalysis'):
+            ai = data['premiumFeatures']['aiAnalysis']
+            logger.ui(f"\n🤖 AI Analysis:")
+            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
+            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
+            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
+            if ai.get('keywords'):
+                logger.ui(f"   Keywords: {', '.join(ai['keywords'])}")
+        
+        # AI Models (for premium tier)
+        if data.get('premiumPlusFeatures', {}).get('aiModels'):
+            ai = data['premiumPlusFeatures']['aiModels']
+            logger.ui(f"\n🤖 Advanced AI Models:")
+            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
+            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
+            logger.ui(f"   Model: {ai.get('modelVersion', 'N/A')}")
+            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
+            if ai.get('keywords'):
+                logger.ui(f"   Keywords: {', '.join(ai['keywords'])}")
+        
+        # Advanced AI (for enterprise tier)
+        if data.get('enterpriseFeatures', {}).get('advancedAI'):
+            ai = data['enterpriseFeatures']['advancedAI']
+            logger.ui(f"\n🏛️ Institutional AI:")
+            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
+            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
+            logger.ui(f"   Model: {ai.get('modelVersion', 'N/A')}")
+            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
+            if ai.get('riskAssessment'):
+                risk = ai['riskAssessment']
+                logger.ui(f"   Risk Score: {risk.get('score', 'N/A')}")
+        
+        # Market Data
+        market_data = None
+        if data.get('premiumFeatures', {}).get('marketData'):
+            market_data = data['premiumFeatures']['marketData']
+        elif data.get('premiumPlusFeatures', {}).get('marketData'):
+            market_data = data['premiumPlusFeatures']['marketData']
+        
+        if market_data:
+            logger.ui(f"\n📊 Market Data:")
+            if market_data.get('predictiveModel'):
+                model = market_data['predictiveModel']
+                logger.ui(f"   Next Hour: {model.get('nextHour', 'N/A')}")
+                if model.get('nextDay'):
+                    logger.ui(f"   Next Day: {model.get('nextDay', 'N/A')}")
+                logger.ui(f"   Accuracy: {model.get('accuracy', 'N/A')}")
+                if model.get('signals'):
+                    logger.ui(f"   Signals: {', '.join(model['signals'])}")
+        
+        # Institutional Data (for enterprise tier)
+        if data.get('enterpriseFeatures', {}).get('institutionalData'):
+            inst = data['enterpriseFeatures']['institutionalData']
+            logger.ui(f"\n🏦 Institutional Data:")
+            if inst.get('whaleMovements'):
+                logger.ui(f"   Whale Movements: {len(inst['whaleMovements'])} tracked")
+            if inst.get('darkPoolActivity'):
+                dark = inst['darkPoolActivity']
+                logger.ui(f"   Dark Pool Volume: {dark.get('volume24h', 'N/A')}")
+            if inst.get('yieldOpportunities'):
+                logger.ui(f"   Yield Opportunities: {len(inst['yieldOpportunities'])} available")
+        
+        # Access information
+        if data.get('access'):
+            access = data['access']
+            logger.ui(f"\n🎫 Access Information:")
+            logger.ui(f"   Level: {access.get('accessLevel', 'N/A')}")
+            logger.ui(f"   Valid Until: {access.get('validUntil', 'N/A')}")
+            logger.ui(f"   API Calls Remaining: {access.get('apiCallsRemaining', 'N/A')}")
+        
+        # Insights
+        if data.get('insights'):
+            logger.ui(f"\n💡 Key Insights:")
+            for insight in data['insights']:
+                logger.ui(f"   {insight}")
+        
+        # Developer information
+        if data.get('developer'):
+            dev = data['developer']
+            logger.ui(f"\n🔧 Developer Info:")
+            logger.ui(f"   Implementation: {dev.get('implementation', 'N/A')}")
+            logger.ui(f"   Cost: {dev.get('cost', 'N/A')}")
+            logger.ui(f"   Billing: {dev.get('billing', 'N/A')}")
+    
+    # Display tier information (fallback for old format)
     if response_data.get('tier'):
         logger.ui(f"\n🎫 Access Level: {response_data['tier']}")
     

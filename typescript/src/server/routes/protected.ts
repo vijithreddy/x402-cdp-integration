@@ -7,6 +7,7 @@
 
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
+import { getClientFromPayment } from '../utils/payment-parser';
 
 /**
  * Generate premium content with AI analysis and market data
@@ -38,31 +39,6 @@ function generatePremiumContent() {
       remainingCredits: Math.floor(Math.random() * 50 + 10)
     }
   };
-}
-
-/**
- * Extract client address from payment header
- */
-function getClientFromPayment(req: Request): string {
-  const xPayment = req.headers['x-payment'] as string;
-  if (!xPayment) return 'unknown';
-  
-  try {
-    if (/^[A-Za-z0-9+/]*={0,2}$/.test(xPayment)) {
-      const decoded = Buffer.from(xPayment, 'base64').toString('utf-8');
-      const paymentData = JSON.parse(decoded);
-      
-      if (paymentData?.payload?.authorization?.from) {
-        const clientAddress = paymentData.payload.authorization.from;
-        if (typeof clientAddress === 'string' && clientAddress.startsWith('0x')) {
-          return clientAddress;
-        }
-      }
-    }
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
 }
 
 /**

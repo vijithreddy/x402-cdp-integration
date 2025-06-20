@@ -15,6 +15,7 @@
 import type { CLICommand, CommandContext } from '../types/commands';
 import { displayError } from '../utils/display';
 import { logger } from '../../shared/utils/logger';
+import { config } from '../../shared/config';
 import axios from 'axios';
 
 // Custom error type for free endpoint operations
@@ -51,8 +52,11 @@ export const freeCommand: CLICommand = {
       // Create HTTP client
       let client;
       try {
+        const serverConfig = config.getServerConfig('typescript');
+        const baseURL = `http://${serverConfig.host}:${serverConfig.port}`;
+        
         client = axios.create({
-          baseURL: 'http://localhost:3000',
+          baseURL: baseURL,
           timeout: 10000
         });
       } catch (clientError) {

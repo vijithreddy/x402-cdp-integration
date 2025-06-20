@@ -17,9 +17,21 @@ from .config import wallet_config
 from .routes import content_router, health_router
 from .utils import create_error_response
 from ..shared.utils.logger import logger
+from src.shared.config import config as shared_config
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Set up logging based on config
+server_config = shared_config.get_server_config("python")
+log_level_name = server_config.get("log_level", "INFO").upper()
+log_level_map = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR
+}
+
+# Set log level for X402 library (without basicConfig to avoid duplicates)
+logging.getLogger('x402').setLevel(log_level_map.get(log_level_name, logging.INFO))
+logging.getLogger('x402.fastapi').setLevel(log_level_map.get(log_level_name, logging.INFO))
 
 # Create FastAPI app
 app = FastAPI(
@@ -49,56 +61,44 @@ async def startup_event():
         logger.error(f"❌ Failed to initialize server: {e}")
         raise
 
-# Apply official X402 middleware to protected routes
-app.middleware("http")(
-    require_payment(
-        path="/protected",
-        price=TokenAmount(
-            amount="10000",  # 0.01 USDC in wei
-            asset=TokenAsset(
-                address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
-                decimals=6,
-                eip712=EIP712Domain(name="USDC", version="2"),
-            ),
-        ),
-        pay_to_address=wallet_config.get_receiving_address(),
-        network_id="base-sepolia"
-    )
+# Add simple request logging middleware FIRST
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"🎯 REQUEST RECEIVED: {request.method} {request.url}")
+    logger.debug(f"   Headers: {dict(request.headers)}")
+    
+    response = await call_next(request)
+    
+    logger.info(f"✅ RESPONSE SENT: {response.status_code}")
+    return response
+
+# Apply official X402 middleware to protected routes for all tiers
+from x402.types import EIP712Domain, TokenAmount, TokenAsset
+
+usdc_asset = TokenAsset(
+    address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
+    decimals=6,
+    eip712=EIP712Domain(name="USDC", version="2"),
 )
 
-# Apply X402 middleware to premium route
-app.middleware("http")(
-    require_payment(
-        path="/premium",
-        price=TokenAmount(
-            amount="100000",  # 0.1 USDC in wei
-            asset=TokenAsset(
-                address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
-                decimals=6,
-                eip712=EIP712Domain(name="USDC", version="2"),
-            ),
-        ),
-        pay_to_address=wallet_config.get_receiving_address(),
-        network_id="base-sepolia"
-    )
-)
-
-# Apply X402 middleware to enterprise route
-app.middleware("http")(
-    require_payment(
-        path="/enterprise",
-        price=TokenAmount(
-            amount="1000000",  # 1.0 USDC in wei
-            asset=TokenAsset(
-                address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
-                decimals=6,
-                eip712=EIP712Domain(name="USDC", version="2"),
-            ),
-        ),
-        pay_to_address=wallet_config.get_receiving_address(),
-        network_id="base-sepolia"
-    )
-)
+app.middleware("http")(require_payment(
+    path="/protected",
+    price=TokenAmount(amount="10000", asset=usdc_asset),  # 0.01 USDC
+    pay_to_address=wallet_config.get_receiving_address(),
+    network_id="base-sepolia"
+))
+app.middleware("http")(require_payment(
+    path="/premium",
+    price=TokenAmount(amount="100000", asset=usdc_asset),  # 0.1 USDC
+    pay_to_address=wallet_config.get_receiving_address(),
+    network_id="base-sepolia"
+))
+app.middleware("http")(require_payment(
+    path="/enterprise",
+    price=TokenAmount(amount="1000000", asset=usdc_asset),  # 1.0 USDC
+    pay_to_address=wallet_config.get_receiving_address(),
+    network_id="base-sepolia"
+))
 
 # Include route modules
 app.include_router(content_router, tags=["content"])
@@ -126,10 +126,46 @@ async def root():
         "endpoints": {
             "health": "/health",
             "status": "/status",
+            "free": "/free",
             "protected": "/protected",
             "premium": "/premium",
-            "enterprise": "/enterprise",
-            "free": "/free"
+            "enterprise": "/enterprise"
+        }
+    }
+
+@app.get("/free")
+async def free():
+    """Free tier endpoint - no payment required"""
+    return {
+        "contentTier": "FREE",
+        "message": "📖 Free Content - No Payment Required",
+        "subtitle": "This content is available without any payment",
+        "data": {
+            "basicInfo": {
+                "service": "X402 Demo API",
+                "version": "1.0.0",
+                "timestamp": "2025-06-20T03:24:45.110Z",
+                "accessLevel": "PUBLIC"
+            },
+            "freeFeatures": [
+                "📊 Basic market data (15-minute delay)",
+                "📈 Simple price charts",
+                "📱 Standard API rate limits",
+                "🔍 Limited search functionality",
+                "⏰ Business hours support only"
+            ],
+            "limitations": {
+                "updateFrequency": "15 minutes",
+                "dataAccuracy": "Standard",
+                "apiCallsPerHour": 10,
+                "supportLevel": "Community forum only",
+                "advancedFeatures": "Not available"
+            },
+            "upgradeInfo": {
+                "note": "Want real-time data and AI insights?",
+                "upgrade": "Try the /protected endpoint (requires payment)",
+                "benefits": "Unlock premium features, real-time data, and AI analysis"
+            }
         }
     }
 
@@ -167,6 +203,84 @@ async def protected():
                 "note": "This content required X402 micropayment to access",
                 "implementation": "Official X402 middleware with automatic payment handling",
                 "cost": "0.01 USDC per request",
+                "billing": "Pay-per-use model - no subscriptions needed"
+            }
+        }
+    }
+
+@app.get("/premium")
+async def premium():
+    """Premium endpoint that requires X402 payment"""
+    return {
+        "message": "🔓 PREMIUM PLUS ACCESS GRANTED - Payment Verified",
+        "subtitle": "You have successfully accessed premium plus content via X402 payment",
+        "data": {
+            "payment": {
+                "amount": "0.1 USDC",
+                "timestamp": "2025-06-20T03:24:45.110Z",
+                "transactionType": "X402_MICROPAYMENT"
+            },
+            "premiumPlusFeatures": {
+                "aiModels": "Advanced deep learning models for predictive analytics",
+                "marketData": "Expanded market coverage and institutional signals",
+                "exclusiveContent": "Premium Plus trading strategies and reports"
+            },
+            "access": {
+                "contentId": "premium-plus-1750389885110",
+                "accessLevel": "PREMIUM_PLUS",
+                "validUntil": "2025-06-20T04:24:45.110Z",
+                "apiCallsRemaining": 199
+            },
+            "insights": [
+                "🤖 Advanced AI models with 92%+ accuracy",
+                "📈 Predictive analytics for next-day trends",
+                "📊 Institutional order flow and volume signals",
+                "🔮 Deep learning models trained on 100M+ data points",
+                "⚡ Priority API access for premium users"
+            ],
+            "developer": {
+                "note": "This content required X402 micropayment to access",
+                "implementation": "Official X402 middleware with automatic payment handling",
+                "cost": "0.1 USDC per request",
+                "billing": "Pay-per-use model - no subscriptions needed"
+            }
+        }
+    }
+
+@app.get("/enterprise")
+async def enterprise():
+    """Enterprise endpoint that requires X402 payment"""
+    return {
+        "message": "🔓 ENTERPRISE ACCESS GRANTED - Payment Verified",
+        "subtitle": "You have successfully accessed enterprise content via X402 payment",
+        "data": {
+            "payment": {
+                "amount": "1.0 USDC",
+                "timestamp": "2025-06-20T03:24:45.110Z",
+                "transactionType": "X402_MICROPAYMENT"
+            },
+            "enterpriseFeatures": {
+                "institutionalData": "Whale movements, dark pool activity, and yield opportunities",
+                "advancedAI": "Institutional-grade AI analysis and risk assessment",
+                "exclusiveFeatures": "Custom insights, portfolio optimization, and arbitrage signals"
+            },
+            "access": {
+                "contentId": "enterprise-1750389885110",
+                "accessLevel": "ENTERPRISE",
+                "validUntil": "2025-06-20T04:24:45.110Z",
+                "apiCallsRemaining": 499
+            },
+            "insights": [
+                "🏦 Whale tracking and institutional order flow",
+                "🤖 Institutional AI with 95%+ accuracy",
+                "📈 Real-time dark pool and OTC desk activity",
+                "🔮 Custom alpha generation and risk management",
+                "⚡ Priority support and custom integrations"
+            ],
+            "developer": {
+                "note": "This content required X402 micropayment to access",
+                "implementation": "Official X402 middleware with automatic payment handling",
+                "cost": "1.0 USDC per request",
                 "billing": "Pay-per-use model - no subscriptions needed"
             }
         }

@@ -4,12 +4,15 @@
  * Common functions and utilities used by X402 payment commands.
  */
 
-import axios from 'axios';
-import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
+import type { CLICommand, CommandContext } from '../../types/commands';
+import { displayError } from '../../utils/display';
 import { logger } from '../../../shared/utils/logger';
-import type { CommandContext } from '../../types/commands';
-import type { X402EndpointConfig } from './types';
+import { config } from '../../../shared/config';
+import { WalletManager } from '../../../shared/utils/walletManager';
 import { toAccount } from 'viem/accounts';
+import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-axios';
+import axios from 'axios';
+import type { X402EndpointConfig } from './types';
 
 /**
  * X402 endpoint configurations for all tiers
@@ -98,9 +101,12 @@ export async function createX402Client(context: CommandContext) {
     logger.ui(`Wallet: ${viemAccount.address}`);
     
     // Create X402-enabled axios client with payment interceptor
+    const serverConfig = config.getServerConfig('typescript');
+    const baseURL = `http://${serverConfig.host}:${serverConfig.port}`;
+    
     const api = withPaymentInterceptor(
       axios.create({
-        baseURL: 'http://localhost:3000',
+        baseURL: baseURL,
         timeout: 60000, // Increased timeout for payment processing
       }),
       viemAccount as any
@@ -116,15 +122,15 @@ export async function createX402Client(context: CommandContext) {
 /**
  * Display premium content response in a simple format
  */
-export function displayPremiumContent(response: any, config: X402EndpointConfig): void {
+export function displayPremiumContent(response: any, endpointConfig: X402EndpointConfig): void {
   if (!response.data) return;
   
-  logger.ui(`\n${config.tierName.toUpperCase()} CONTENT ACCESSED`);
+  logger.ui(`\n${endpointConfig.tierName.toUpperCase()} CONTENT ACCESSED`);
   logger.ui('═══════════════════════════════════════════════════════════');
   
   // Payment verification status
   if (response.data.paymentVerified) {
-    logger.ui(`✅ PAYMENT VERIFIED - Access Granted to ${config.tierName}`);
+    logger.ui(`✅ PAYMENT VERIFIED - Access Granted to ${endpointConfig.tierName}`);
   }
   
   if (response.data.message) {
@@ -157,7 +163,7 @@ export function displayPremiumContent(response: any, config: X402EndpointConfig)
   
   // Insights
   if (data.insights && data.insights.length > 0) {
-    logger.ui(`\n💎 ${config.tierName} Features You're Now Accessing:`);
+    logger.ui(`\n💎 ${endpointConfig.tierName} Features You're Now Accessing:`);
     data.insights.forEach((insight: string) => {
       logger.ui(`   ${insight}`);
     });
@@ -226,7 +232,7 @@ export async function handlePaymentCompletion(
 /**
  * Handle X402 request errors consistently
  */
-export function handleX402Error(error: any, config: X402EndpointConfig): void {
+export function handleX402Error(error: any, endpointConfig: X402EndpointConfig): void {
   // Type-safe error handling
   const typedError = error as { 
     message?: string; 
@@ -242,7 +248,9 @@ export function handleX402Error(error: any, config: X402EndpointConfig): void {
   };
   
   if (typedError.code === 'ECONNREFUSED') {
-    logger.error('Cannot connect to server at http://localhost:3000');
+    const tsServerConfig = config.getServerConfig('typescript');
+    const serverURL = `http://${tsServerConfig.host}:${tsServerConfig.port}`;
+    logger.error(`Cannot connect to server at ${serverURL}`);
     logger.ui('💡 Make sure the server is running: npm run dev:server');
   } else if (typedError.code === 'ENOTFOUND') {
     logger.error('Network error: Cannot resolve localhost');
@@ -255,14 +263,14 @@ export function handleX402Error(error: any, config: X402EndpointConfig): void {
     logger.ui('💡 Server may already be running or port 3000 is in use');
   } else if (typedError.status === 402 || typedError.response?.status === 402) {
     logger.error('X402 interceptor failed to process payment automatically');
-    logger.ui(`💡 This suggests an issue with the payment interceptor for ${config.tierName}`);
+    logger.ui(`💡 This suggests an issue with the payment interceptor for ${endpointConfig.tierName}`);
     if (typedError.response?.data?.accepts) {
       logger.debug('Payment options available but not processed', typedError.response.data.accepts);
     }
   } else if (typedError.response?.data?.error) {
     logger.warn('Server error', typedError.response.data.error);
   } else {
-    logger.error(`Error during ${config.tierName} X402 test`, typedError);
+    logger.error(`Error during ${endpointConfig.tierName} X402 test`, typedError);
     if (typedError.response?.data) {
       logger.debug('Response data', typedError.response.data);
     }

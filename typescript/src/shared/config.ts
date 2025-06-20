@@ -5,72 +5,95 @@
  * Makes it easy to modify settings in one place.
  */
 
-export const config = {
-  // Server configuration
-  server: {
-    port: process.env.PORT || 3000,
-    baseUrl: 'http://localhost:3000',
-    network: 'base-sepolia',
-    facilitator: 'Coinbase official'
-  },
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
 
-  // X402 payment tiers
-  x402: {
-    tiers: {
-      basic: {
-        name: 'Basic Premium',
-        price: '0.01 USDC',
-        endpoint: '/protected',
-        description: 'Basic premium features with AI analysis and market data'
-      },
-      premium: {
-        name: 'Premium Plus',
-        price: '0.1 USDC',
-        endpoint: '/premium-plus',
-        description: 'Advanced AI models, predictive analytics, and exclusive reports'
-      },
-      enterprise: {
-        name: 'Enterprise',
-        price: '1.0 USDC',
-        endpoint: '/enterprise',
-        description: 'Enterprise analytics, institutional data, and custom insights'
-      }
-    },
-    // Common X402 settings
-    settings: {
-      maxTimeoutSeconds: 60,
-      defaultNetwork: 'base-sepolia'
+export interface ServerConfig {
+  port: number;
+  log_level: string;
+  host: string;
+}
+
+export interface ClientConfig {
+  log_level: string;
+  verbose: boolean;
+}
+
+export interface X402Config {
+  facilitator_url: string;
+  network: string;
+  scheme: string;
+}
+
+export interface AppConfig {
+  servers: {
+    python: ServerConfig;
+    typescript: ServerConfig;
+  };
+  clients: {
+    python: ClientConfig;
+    typescript: ClientConfig;
+  };
+  x402: X402Config;
+}
+
+export class Config {
+  private config: AppConfig;
+  private configPath: string;
+
+  constructor(configPath?: string) {
+    if (!configPath) {
+      // Look for config.yaml in project root (2 levels up from this file)
+      const currentDir = __dirname;
+      this.configPath = path.join(currentDir, '..', '..', '..', 'config.yaml');
+    } else {
+      this.configPath = configPath;
     }
-  },
 
-  // Wallet configuration
-  wallet: {
-    fileNames: {
-      client: 'wallet-data.json',
-      server: 'server-wallet-data.json'
-    },
-    defaultName: 'CDP-CLI-Account'
-  },
-
-  // Logging configuration
-  logging: {
-    levels: {
-      error: '❌',
-      warn: '⚠️',
-      info: 'ℹ️',
-      success: '✅',
-      debug: '🔍',
-      flow: '🔄',
-      ui: '💬'
-    },
-    colors: {
-      error: 'red',
-      warn: 'yellow',
-      info: 'blue',
-      success: 'green',
-      debug: 'gray',
-      flow: 'cyan',
-      ui: 'white'
-    }
+    this.config = this.loadConfig();
   }
-}; 
+
+  private loadConfig(): AppConfig {
+    if (!fs.existsSync(this.configPath)) {
+      throw new Error(`Config file not found: ${this.configPath}`);
+    }
+
+    const configContent = fs.readFileSync(this.configPath, 'utf8');
+    return yaml.load(configContent) as AppConfig;
+  }
+
+  getServerConfig(serverType: 'python' | 'typescript' = 'typescript'): ServerConfig {
+    return this.config.servers[serverType];
+  }
+
+  getClientConfig(clientType: 'python' | 'typescript' = 'typescript'): ClientConfig {
+    return this.config.clients[clientType];
+  }
+
+  getX402Config(): X402Config {
+    return this.config.x402;
+  }
+
+  get(key: string, default_value?: any): any {
+    const keys = key.split('.');
+    let value: any = this.config;
+
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        return default_value;
+      }
+    }
+
+    return value;
+  }
+
+  getConfigPath(): string {
+    return this.configPath;
+  }
+}
+
+// Global config instance
+export const config = new Config(); 

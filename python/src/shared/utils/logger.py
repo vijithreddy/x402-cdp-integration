@@ -7,10 +7,6 @@ import os
 import sys
 from datetime import datetime
 from typing import Any, Dict, Optional
-from rich.console import Console
-from rich.logging import RichHandler
-
-console = Console()
 
 class X402Logger:
     """Custom logger for X402 CDP Integration with verbose/quiet flagging"""
@@ -19,12 +15,15 @@ class X402Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
         
+        # Prevent duplicate handlers
+        self.logger.propagate = False
+        
         # Initialize verbose mode from environment or command line
         self.is_verbose = self._parse_verbose_flags()
         
-        # Add rich handler for beautiful console output
+        # Add simple handler for clean console output
         if not self.logger.handlers:
-            handler = RichHandler(console=console, show_time=True)
+            handler = logging.StreamHandler()
             handler.setFormatter(logging.Formatter("%(message)s"))
             self.logger.addHandler(handler)
     
@@ -48,16 +47,17 @@ class X402Logger:
     def info(self, message: str, data: Optional[Dict[str, Any]] = None):
         """Log info message"""
         if data:
-            self.logger.info(f"{message} {json.dumps(data, default=str)}")
+            self.logger.info(f"ℹ️  {datetime.utcnow().isoformat()}Z [INFO] {message}")
+            self.logger.info(json.dumps(data, default=str, indent=2))
         else:
-            self.logger.info(message)
+            self.logger.info(f"ℹ️  {datetime.utcnow().isoformat()}Z [INFO] {message}")
     
     def error(self, message: str, error: Optional[Exception] = None):
         """Log error message"""
         if error:
-            self.logger.error(f"{message}: {str(error)}")
+            self.logger.error(f"❌ {datetime.utcnow().isoformat()}Z [ERROR] {message}: {str(error)}")
         else:
-            self.logger.error(message)
+            self.logger.error(f"❌ {datetime.utcnow().isoformat()}Z [ERROR] {message}")
     
     def debug(self, message: str, data: Optional[Dict[str, Any]] = None):
         """Log debug message - only in verbose mode"""
@@ -65,41 +65,35 @@ class X402Logger:
             return
         
         if data:
-            self.logger.debug(f"{message} {json.dumps(data, default=str)}")
+            self.logger.debug(f"🔍 {datetime.utcnow().isoformat()}Z [DEBUG] {message}")
+            self.logger.debug(json.dumps(data, default=str, indent=2))
         else:
-            self.logger.debug(message)
+            self.logger.debug(f"🔍 {datetime.utcnow().isoformat()}Z [DEBUG] {message}")
     
     def success(self, message: str, data: Optional[Dict[str, Any]] = None):
-        """Log success message with green color"""
+        """Log success message"""
         if data:
-            console.print(f"✅ {message} {json.dumps(data, default=str)}", style="green")
+            self.logger.info(f"✅ {datetime.utcnow().isoformat()}Z [SUCCESS] {message}")
+            self.logger.info(json.dumps(data, default=str, indent=2))
         else:
-            console.print(f"✅ {message}", style="green")
+            self.logger.info(f"✅ {datetime.utcnow().isoformat()}Z [SUCCESS] {message}")
     
     def warning(self, message: str):
-        """Log warning message with yellow color"""
-        console.print(f"⚠️  {message}", style="yellow")
+        """Log warning message"""
+        self.logger.warning(f"⚠️  {datetime.utcnow().isoformat()}Z [WARNING] {message}")
     
     def ui(self, message: str):
         """Log user interface message"""
-        console.print(message)
+        self.logger.info(message)
     
     def flow(self, action: str, data: Optional[Dict[str, Any]] = None):
-        """Log flow/process messages - only in verbose mode"""
-        if not self.is_verbose:
-            return
-            
+        """Log flow/process messages at INFO level"""
         timestamp = datetime.utcnow().isoformat() + "Z"
-        flow_data = {
-            "action": action,
-            "timestamp": timestamp
-        }
-        if data:
-            flow_data.update(data)
         
+        # Always log flow events at INFO level
         self.logger.info(f"🔄 {timestamp} [FLOW] {action}")
         if data:
-            self.logger.debug(json.dumps(flow_data, default=str))
+            self.logger.info(json.dumps(data, default=str, indent=2))
 
 # Global logger instance
 logger = X402Logger()

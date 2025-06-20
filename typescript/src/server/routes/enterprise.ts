@@ -2,11 +2,12 @@
  * Enterprise Content Route Module
  * 
  * Provides enterprise content that requires X402 payment to access.
- * Demonstrates institutional-grade features and custom insights.
+ * Demonstrates institutional-grade features and advanced analytics.
  */
 
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
+import { getClientFromPayment } from '../utils/payment-parser';
 
 /**
  * Generate enterprise content with institutional features
@@ -53,31 +54,6 @@ function generateEnterpriseContent() {
       ]
     }
   };
-}
-
-/**
- * Extract client address from payment header
- */
-function getClientFromPayment(req: Request): string {
-  const xPayment = req.headers['x-payment'] as string;
-  if (!xPayment) return 'unknown';
-  
-  try {
-    if (/^[A-Za-z0-9+/]*={0,2}$/.test(xPayment)) {
-      const decoded = Buffer.from(xPayment, 'base64').toString('utf-8');
-      const paymentData = JSON.parse(decoded);
-      
-      if (paymentData?.payload?.authorization?.from) {
-        const clientAddress = paymentData.payload.authorization.from;
-        if (typeof clientAddress === 'string' && clientAddress.startsWith('0x')) {
-          return clientAddress;
-        }
-      }
-    }
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
 }
 
 /**
@@ -142,5 +118,5 @@ export const enterpriseRoute: RouteDefinition = {
   requiresPayment: true,
   price: '1.0 USDC',
   network: 'base-sepolia',
-  description: 'Enterprise content with institutional features'
+  description: 'Enterprise content with institutional features and advanced analytics'
 }; 

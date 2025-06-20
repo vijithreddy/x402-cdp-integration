@@ -33,6 +33,7 @@ import { facilitator } from '@coinbase/x402';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger, parseLogFlags } from '../shared/utils/logger';
+import { config } from '../shared/config';
 import { registerRoutes, allRoutes } from './routes';
 import { requestLoggingMiddleware, responseLoggingMiddleware } from './middleware/logging';
 import { securityHeadersMiddleware, requestValidationMiddleware } from './middleware/security';
@@ -45,7 +46,8 @@ import { enterpriseRoute } from './routes/enterprise';
 // Load environment variables
 dotenv.config();
 
-// Initialize server logger
+// Initialize server logger with config
+const serverConfig = config.getServerConfig('typescript');
 const logConfig = parseLogFlags();
 logger.updateConfig(logConfig);
 
@@ -198,7 +200,7 @@ app.get(protectedRoute.path, protectedRoute.handler);
 app.get(premiumPlusRoute.path, premiumPlusRoute.handler);
 app.get(enterpriseRoute.path, enterpriseRoute.handler);
 
-const PORT = process.env.PORT || 3000;
+const PORT = serverConfig.port;
 
 // Validate port
 if (isNaN(Number(PORT)) || Number(PORT) < 1 || Number(PORT) > 65535) {
@@ -207,9 +209,9 @@ if (isNaN(Number(PORT)) || Number(PORT) < 1 || Number(PORT) > 65535) {
 }
 
 // Start server with error handling
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, serverConfig.host, () => {
   logger.info('X402 Payment Server - Base Sepolia');
-  logger.info(`Listening: http://localhost:${PORT}`);
+  logger.info(`Listening: http://${serverConfig.host}:${PORT}`);
   logger.ui(`Server Wallet: ${serverWallet.address} | Client Wallet: ${clientWallet.address}`);
   logger.ui('═══════════════════════════════════════════════════════════');
   
@@ -223,6 +225,8 @@ const server = app.listen(PORT, () => {
   // Verbose configuration details only in debug mode
   logger.debug('Server configuration', {
     port: PORT,
+    host: serverConfig.host,
+    log_level: serverConfig.log_level,
     endpoints: endpointSummary,
     payment: {
       network: 'base-sepolia',

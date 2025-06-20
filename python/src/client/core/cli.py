@@ -12,6 +12,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from src.shared.utils.logger import logger
 from src.shared.utils.wallet_manager import WalletManager
+from src.shared.config import get_server_url
 from .commands import CommandRegistry
 from .cdp_signer import get_cdp_local_account_sync
 import sys
@@ -46,7 +47,7 @@ Type "help" for more details
         super().__init__()
         self.wallet_manager = wallet_manager
         self.command_registry = CommandRegistry(wallet_manager)
-        self.server_url = "http://localhost:5001"
+        self.server_url = get_server_url()
         self.cdp_signer = None
         
         # Set up command aliases
@@ -166,19 +167,12 @@ Type "help" for more details
     def do_free(self, arg):
         """Access free content"""
         try:
-            import requests
+            from src.client.commands.free import free_command
+            import asyncio
             
             console.print("🎯 Accessing Free Content", style="cyan")
+            asyncio.run(free_command([]))
             
-            response = requests.get("http://localhost:5001/free", timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                console.print("✅ Free content accessed!", style="green")
-                console.print(f"📄 {data.get('message', 'Free content')}", style="cyan")
-            else:
-                console.print(f"❌ Failed to access free content: {response.status_code}", style="red")
-                
         except Exception as e:
             logger.error("Failed to access free content", e)
             console.print(f"❌ Free content access failed: {e}", style="red")

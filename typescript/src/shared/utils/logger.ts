@@ -34,6 +34,27 @@ interface LoggerConfig {
   level?: string;
 }
 
+// Hardcoded logging levels and colors
+const LoggingLevels = {
+  error: '❌',
+  warn: '⚠️',
+  info: 'ℹ️',
+  success: '✅',
+  debug: '🔍',
+  flow: '🔄',
+  ui: '💬'
+};
+
+const LoggingColors = {
+  error: 'red',
+  warn: 'yellow',
+  info: 'blue',
+  success: 'green',
+  debug: 'gray',
+  flow: 'cyan',
+  ui: 'white'
+};
+
 /**
  * Logger Utility
  * 
@@ -65,8 +86,8 @@ class Logger {
 
   private log(level: LogLevel, message: string, data?: LogData) {
     const entry = this.formatLog(level, message, data);
-    const icon = config.logging.levels[level] || 'ℹ️';
-    const color = config.logging.colors[level] || 'blue';
+    const icon = LoggingLevels[level] || 'ℹ️';
+    const color = LoggingColors[level] || 'blue';
 
     // Only show debug logs in verbose mode
     if (level === LogLevels.DEBUG && !this.isVerbose) {
@@ -92,6 +113,9 @@ class Logger {
         break;
       case 'gray':
         console.log('\x1b[90m%s\x1b[0m', formattedMessage);
+        break;
+      case 'cyan':
+        console.log('\x1b[36m%s\x1b[0m', formattedMessage);
         break;
       default:
         console.log(formattedMessage);

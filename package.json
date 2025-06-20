@@ -2,15 +2,19 @@
   "name": "x402-cdp-integration",
   "version": "1.0.0",
   "description": "X402 CDP Integration Monorepo",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "setup": "node -e \"const fs = require('fs'); fs.copyFileSync('.env', 'typescript/.env'); fs.copyFileSync('.env', 'python/.env'); console.log('✅ .env files copied to language folders')\"",
     "setup:ts": "cd typescript && npm install",
-    "setup:py": "cd python && python3 setup.py",
+    "py:setup": "cd python && python3 setup.py",
     "ts:client": "cd typescript && npm run dev:client",
     "ts:server": "cd typescript && npm run dev:server",
     "ts:setup": "cd typescript && npm run setup",
     "py:client": "PYTHONPATH=python python3 -m src.client.core.cli",
-    "py:server": "cd python && python3 -m uvicorn src.server.app:app --host 0.0.0.0 --port 5001 --reload"
+    "py:server": "cd python && python3 run_server.py"
   },
   "keywords": ["x402", "cdp", "coinbase", "payment"],
   "author": "",

@@ -2,11 +2,12 @@
  * Premium Plus Content Route Module
  * 
  * Provides premium plus content that requires X402 payment to access.
- * Demonstrates advanced AI models and predictive analytics.
+ * Demonstrates advanced AI models and institutional features.
  */
 
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
+import { getClientFromPayment } from '../utils/payment-parser';
 
 /**
  * Generate premium plus content with advanced AI models
@@ -39,31 +40,6 @@ function generatePremiumPlusContent() {
       remainingCredits: Math.floor(Math.random() * 100 + 50)
     }
   };
-}
-
-/**
- * Extract client address from payment header
- */
-function getClientFromPayment(req: Request): string {
-  const xPayment = req.headers['x-payment'] as string;
-  if (!xPayment) return 'unknown';
-  
-  try {
-    if (/^[A-Za-z0-9+/]*={0,2}$/.test(xPayment)) {
-      const decoded = Buffer.from(xPayment, 'base64').toString('utf-8');
-      const paymentData = JSON.parse(decoded);
-      
-      if (paymentData?.payload?.authorization?.from) {
-        const clientAddress = paymentData.payload.authorization.from;
-        if (typeof clientAddress === 'string' && clientAddress.startsWith('0x')) {
-          return clientAddress;
-        }
-      }
-    }
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
 }
 
 /**
@@ -128,5 +104,5 @@ export const premiumPlusRoute: RouteDefinition = {
   requiresPayment: true,
   price: '0.1 USDC',
   network: 'base-sepolia',
-  description: 'Premium plus content with advanced AI models'
+  description: 'Premium plus content with advanced AI models and institutional features'
 }; 

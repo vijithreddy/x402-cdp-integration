@@ -1,3 +1,4 @@
+# Python 3.8+ required (3.10+ recommended)
 cdp-sdk
 click
 python-dotenv
@@ -8,4 +9,5 @@ fastapi
 uvicorn[standard]
 requests
 x402
-eth-account 
+eth-account
+PyYAML 

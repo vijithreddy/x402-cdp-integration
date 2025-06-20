@@ -14,38 +14,14 @@ load_dotenv()
 import asyncio
 import json
 from cdp import CdpClient
-from src.client.core.custom_x402_client import CustomX402Client
-from src.shared.config import get_cdp_config
+from src.client.core.custom_x402_client import CustomX402Client, CDPSigner
+from src.shared.config import get_cdp_config, get_server_url
 import inspect
-
-class CDPSigner:
-    """Wrapper for CDP account to provide consistent interface"""
-    
-    def __init__(self, account):
-        self.account = account
-        self.address = getattr(account, "address", None)
-
-    async def sign_typed_data(self, domain, types, primary_type, message):
-        """Sign typed data using CDP account"""
-        if inspect.iscoroutinefunction(self.account.sign_typed_data):
-            return await self.account.sign_typed_data(
-                domain=domain,
-                types=types,
-                primary_type=primary_type,
-                message=message
-            )
-        else:
-            # fallback for sync CDP account
-            return self.account.sign_typed_data(
-                domain=domain,
-                types=types,
-                primary_type=primary_type,
-                message=message
-            )
 
 async def test_payment():
     """Test X402 payment to protected endpoint using CDP account"""
-    print("🔄 Testing X402 payment to: http://localhost:5001/protected")
+    server_url = get_server_url()
+    print(f"🔄 Testing X402 payment to: {server_url}/protected")
     
     try:
         # Load wallet configuration
@@ -81,7 +57,7 @@ async def test_payment():
             
             print("\n💸 Sending X402 payment with custom client...")
             result = await x402_client.make_payment_request(
-                url="http://localhost:5001/protected",
+                url=f"{server_url}/protected",
                 amount="10000"
             )
             
