@@ -66,6 +66,40 @@ app.middleware("http")(
     )
 )
 
+# Apply X402 middleware to premium route
+app.middleware("http")(
+    require_payment(
+        path="/premium",
+        price=TokenAmount(
+            amount="100000",  # 0.1 USDC in wei
+            asset=TokenAsset(
+                address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
+                decimals=6,
+                eip712=EIP712Domain(name="USDC", version="2"),
+            ),
+        ),
+        pay_to_address=wallet_config.get_receiving_address(),
+        network_id="base-sepolia"
+    )
+)
+
+# Apply X402 middleware to enterprise route
+app.middleware("http")(
+    require_payment(
+        path="/enterprise",
+        price=TokenAmount(
+            amount="1000000",  # 1.0 USDC in wei
+            asset=TokenAsset(
+                address="0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
+                decimals=6,
+                eip712=EIP712Domain(name="USDC", version="2"),
+            ),
+        ),
+        pay_to_address=wallet_config.get_receiving_address(),
+        network_id="base-sepolia"
+    )
+)
+
 # Include route modules
 app.include_router(content_router, tags=["content"])
 app.include_router(health_router, tags=["health"])

@@ -41,7 +41,7 @@ class CustomX402Client:
         logger.info(f"💰 Amount: {amount} wei (0.01 USDC)")
         
         # Step 1: Make initial request to get X402 payment requirements
-        logger.info(f"Making initial request to: {url}")
+        logger.debug(f"Making initial request to: {url}")
         response = self.session.get(url)
         
         if response.status_code == 200:
@@ -61,9 +61,9 @@ class CustomX402Client:
             }
         
         logger.info("X402 payment required, processing payment flow")
-        logger.info(f"Response status: {response.status_code}")
-        logger.info(f"Response headers: {dict(response.headers)}")
-        logger.info(f"Response body: {response.text}")
+        logger.debug(f"Response status: {response.status_code}")
+        logger.debug(f"Response headers: {dict(response.headers)}")
+        logger.debug(f"Response body: {response.text}")
         
         # Step 2: Parse X402 payment requirements
         try:
@@ -82,12 +82,12 @@ class CustomX402Client:
             if key.lower().startswith('x-x402'):
                 x402_headers[key] = value
         
-        logger.info(f"X402 headers found: {x402_headers}")
+        logger.debug(f"X402 headers found: {x402_headers}")
         
         # Check if response contains X402 v1 format
         x402_version = x402_data.get('x402Version') or x402_data.get('x402_version')
         if x402_version == 1:
-            logger.info("Found X402 v1 format in response body")
+            logger.debug("Found X402 v1 format in response body")
             
             # Use the first accepted payment scheme
             accepts = x402_data.get('accepts') or x402_data.get('accepts', [])
@@ -155,8 +155,6 @@ class CustomX402Client:
             Base64-encoded payment payload or None if failed
         """
         try:
-            logger.info("Signing X402 payment with CDP account")
-            
             # Get current timestamp
             current_time = int(time.time())
             deadline = current_time + 60  # 60 seconds from now
@@ -170,12 +168,12 @@ class CustomX402Client:
                 "from": self.signer.address,
                 "to": recipient,
                 "value": amount,
-                "validAfter": str(current_time - 30),  # 30 seconds in the past to avoid race condition
+                "validAfter": "0",  # Set to 0 to eliminate race conditions entirely
                 "validBefore": str(deadline),
                 "nonce": nonce
             }
             
-            # Create EIP-712 types with camelCase field names
+            # Create EIP-712 types matching the TypeScript client
             authorization_types = {
                 "EIP712Domain": [
                     {"name": "name", "type": "string"},
@@ -193,94 +191,50 @@ class CustomX402Client:
                 ]
             }
             
-            # Create EIP-712 domain using USDC contract address and version from extra field
-            domain = EIP712Domain(
-                name=extra.get("name", "USDC") if extra else "USDC",  # Use USDC name from extra
-                version=extra.get("version", "2") if extra else "2",  # Use version from extra
-                chain_id=84532,  # Base Sepolia
-                verifying_contract=asset  # Use USDC contract address as verifying contract
-            )
+            # Create EIP-712 domain using USDC token info (like TypeScript client)
+            domain = {
+                "name": "USDC",  # From extra.name in payment requirements
+                "version": "2",  # From extra.version in payment requirements
+                "chainId": 84532,  # Base Sepolia
+                "verifyingContract": asset  # USDC contract address
+            }
             
             # Create the data structure that gets signed (matching TypeScript exactly)
             data = {
                 "types": authorization_types,
-                "domain": {
-                    "name": domain.name,
-                    "version": domain.version,
-                    "chainId": domain.chain_id,
-                    "verifyingContract": domain.verifying_contract
-                },
+                "domain": domain,
                 "primaryType": "TransferWithAuthorization",
                 "message": authorization
             }
             
-            logger.info(f"Signing data: {json.dumps(data, indent=2)}")
+            logger.debug(f"Signing data: {json.dumps(data, indent=2)}")
             
             # Sign the structured data using CDP account's async method
             signature = await self.signer.sign_typed_data(
-                domain={
-                    "name": domain.name,
-                    "version": domain.version,
-                    "chainId": domain.chain_id,
-                    "verifyingContract": domain.verifying_contract
-                },
+                domain=domain,
                 types=authorization_types,
                 primary_type="TransferWithAuthorization",
                 message=authorization
             )
             
-            logger.info(f"Signature: {signature}")
-            
-            # Create payment payload with camelCase fields for X402 facilitator
+            # Create payment payload structure (matching TypeScript)
             payment_data = {
-                "x402Version": 1,  # Use camelCase for facilitator
+                "x402Version": 1,
                 "scheme": scheme,
                 "network": network,
+                "resource": resource,
                 "payload": {
-                    "signature": signature,  # Signature comes FIRST
-                    "authorization": {
-                        "from": self.signer.address,  # This will be converted to "from_" by the library
-                        "to": recipient,
-                        "value": amount,
-                        "validAfter": str(current_time - 30),  # 30 seconds in the past to avoid race condition
-                        "validBefore": str(deadline),  # This will be converted to "valid_before" by the library
-                        "nonce": nonce
-                    }
+                    "signature": signature,
+                    "authorization": authorization
                 }
             }
             
-            # Convert to JSON and base64 encode
-            payment_json = json.dumps(payment_data, separators=(',', ':'))
-            logger.info(f"Payment payload JSON: {payment_json}")
+            # Encode as base64
+            payload_json = json.dumps(payment_data)
+            payload_base64 = base64.b64encode(payload_json.encode()).decode()
             
-            payment_base64 = base64.b64encode(payment_json.encode()).decode()
-            logger.info(f"Payment payload base64: {payment_base64}")
-            
-            # Decode and print for analysis
-            decoded_payload = base64.b64decode(payment_base64).decode()
-            logger.info(f"🔍 DECODED X-PAYMENT PAYLOAD FOR ANALYSIS:")
-            logger.info(f"   Raw JSON: {decoded_payload}")
-            
-            # Parse and print field-by-field breakdown
-            parsed_payload = json.loads(decoded_payload)
-            logger.info(f"   Field-by-field breakdown:")
-            logger.info(f"     x402Version: {parsed_payload.get('x402Version')}")
-            logger.info(f"     scheme: {parsed_payload.get('scheme')}")
-            logger.info(f"     network: {parsed_payload.get('network')}")
-            logger.info(f"     resource: {parsed_payload.get('resource')}")
-            
-            payload_data = parsed_payload.get('payload', {})
-            logger.info(f"     payload.signature: {payload_data.get('signature', '')[:20]}...")
-            
-            auth = payload_data.get('authorization', {})
-            logger.info(f"     payload.authorization.from: {auth.get('from')}")
-            logger.info(f"     payload.authorization.to: {auth.get('to')}")
-            logger.info(f"     payload.authorization.value: {auth.get('value')}")
-            logger.info(f"     payload.authorization.validAfter: {auth.get('validAfter')}")
-            logger.info(f"     payload.authorization.validBefore: {auth.get('validBefore')}")
-            logger.info(f"     payload.authorization.nonce: {auth.get('nonce')}")
-            
-            return payment_base64
+            logger.debug(f"✅ Payment payload created: {payload_base64[:50]}...")
+            return payload_base64
             
         except Exception as e:
             logger.error(f"❌ Failed to create payment payload: {e}")
@@ -305,9 +259,9 @@ class CustomX402Client:
             
             response = self.session.get(url, headers=headers)
             
-            logger.info(f"Payment response status: {response.status_code}")
-            logger.info(f"Payment response headers: {dict(response.headers)}")
-            logger.info(f"Payment response body: {response.text}")
+            logger.debug(f"Payment response status: {response.status_code}")
+            logger.debug(f"Payment response headers: {dict(response.headers)}")
+            logger.debug(f"Payment response body: {response.text}")
             
             if response.status_code == 200:
                 logger.info("✅ Payment successful!")
