@@ -1,41 +1,22 @@
 {
-  "name": "typescript-server-cli",
+  "name": "x402-cdp-integration",
   "version": "1.0.0",
-  "description": "TypeScript Express server with CLI client",
-  "main": "dist/server/index.js",
+  "description": "X402 CDP Integration Monorepo",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
-    "setup": "ts-node setup.ts",
-    "dev:server": "ts-node src/server/index.ts",
-    "dev:client": "ts-node src/client/index.ts",
-    "lint": "eslint src/**/*.ts setup.ts --ext .ts",
-    "lint:fix": "eslint src/**/*.ts setup.ts --ext .ts --fix"
+    "setup": "node -e \"const fs = require('fs'); fs.copyFileSync('.env', 'typescript/.env'); fs.copyFileSync('.env', 'python/.env'); console.log('✅ .env files copied to language folders')\"",
+    "setup:ts": "cd typescript && npm install",
+    "py:setup": "cd python && python3 setup.py",
+    "ts:client": "cd typescript && npm run dev:client",
+    "ts:server": "cd typescript && npm run dev:server",
+    "ts:setup": "cd typescript && npm run setup",
+    "py:client": "PYTHONPATH=python python3 -m src.client.core.cli",
+    "py:server": "cd python && python3 run_server.py"
   },
-  "keywords": [
-    "typescript",
-    "express",
-    "cli"
-  ],
+  "keywords": ["x402", "cdp", "coinbase", "payment"],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@eslint/js": "^9.28.0",
-    "@types/express": "^4.17.17",
-    "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.33.1",
-    "@typescript-eslint/parser": "^8.33.1",
-    "eslint": "^9.28.0",
-    "ts-node": "^10.9.0",
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@coinbase/cdp-sdk": "^1.16.0",
-    "@coinbase/x402": "^0.4.0",
-    "axios": "^1.6.0",
-    "dotenv": "^16.3.0",
-    "express": "^4.18.0",
-    "viem": "^2.30.6",
-    "winston": "^3.17.0",
-    "x402-axios": "^0.4.0",
-    "x402-express": "^0.4.0"
-  }
-}
+  "license": "MIT"
+} 
