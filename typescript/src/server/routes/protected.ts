@@ -8,47 +8,74 @@
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
 import { getClientFromPayment } from '../utils/payment-parser';
+import { config } from '../../shared/config';
+import axios from 'axios';
+
+// AI Service configuration from centralized config
+const aiConfig = config.getAIServerConfig();
+const AI_SERVICE_URL = `http://${aiConfig.host}:${aiConfig.port}`;
+
+/**
+ * Call the AI service to generate content for the specified tier
+ */
+async function callAiService(tier: string, userPrompt: string = ''): Promise<any> {
+  try {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/generate/${tier}`,
+      { tier, user_prompt: userPrompt },
+      { timeout: 30000 }
+    );
+    return response.data;
+  } catch (error) {
+    console.warn(`AI service call failed for tier ${tier}:`, error);
+    return null;
+  }
+}
 
 /**
  * Generate premium content with AI analysis and market data
  */
-function generatePremiumContent() {
-  return {
-    aiAnalysis: {
-      sentiment: Math.random() > 0.5 ? 'positive' : 'bullish',
-      confidence: (Math.random() * 40 + 60).toFixed(1) + '%',
-      keywords: ['blockchain', 'payments', 'web3', 'fintech'],
-      summary: 'Advanced AI analysis of payment trends and market sentiment'
-    },
-    marketData: {
-      priceHistory: Array.from({length: 5}, (_, i) => ({
-        timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-        price: (Math.random() * 100 + 2000).toFixed(2),
-        volume: Math.floor(Math.random() * 1000000)
-      })),
-      predictiveModel: {
-        nextHour: '+' + (Math.random() * 5).toFixed(2) + '%',
-        accuracy: '87.3%',
-        signals: ['bullish_momentum', 'volume_surge']
-      }
-    },
-    exclusiveContent: {
-      reportId: `PREMIUM-${Date.now()}`,
-      accessLevel: 'GOLD_TIER',
-      contentType: 'Real-time Analytics + AI Insights',
-      remainingCredits: Math.floor(Math.random() * 50 + 10)
-    }
-  };
+async function generatePremiumContent() {
+  // Try to get real AI content first
+  const aiResponse = await callAiService('tier1');
+  
+  if (aiResponse && aiResponse.source === 'openai') {
+    // Use real AI content
+    return {
+      aiAnalysis: {
+        content: aiResponse.content,
+        source: 'openai',
+        tier: 'tier1'
+      },
+      marketData: aiResponse.market_data || {},
+      exclusiveContent: aiResponse.key_insights || [],
+      keyInsights: aiResponse.key_insights || [],
+      timestamp: aiResponse.timestamp || new Date().toISOString()
+    };
+  } else {
+    // Fallback to mock data (standardized)
+    return {
+      aiAnalysis: {
+        content: '# Market Analysis - Tier1\n\n**Status:** AI service temporarily unavailable\n\n**Fallback Analysis:** Market conditions are being monitored.',
+        source: 'fallback',
+        tier: 'tier1'
+      },
+      marketData: {},
+      exclusiveContent: [],
+      keyInsights: [],
+      timestamp: new Date().toISOString()
+    };
+  }
 }
 
 /**
  * Protected content route handler
  */
-function protectedHandler(req: Request, res: Response): void {
+async function protectedHandler(req: Request, res: Response): Promise<void> {
   try {
     // At this point, payment is already verified by the middleware.
     // Just serve the premium content.
-    const premiumFeatures = generatePremiumContent();
+    const premiumFeatures = await generatePremiumContent();
     const clientAddress = getClientFromPayment(req);
 
     res.json({

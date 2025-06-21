@@ -18,7 +18,7 @@ sys.path.insert(0, str(src_dir))
 from shared.utils.logger import logger
 from shared.utils.wallet_manager import WalletManager
 from shared.config import config
-from client.core.cli import X402CLI
+from .core.cli import X402CLI
 
 def setup_client_logging():
     """Setup logging for the client based on config"""

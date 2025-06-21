@@ -23,8 +23,14 @@
  * @since 1.0.0
  */
 
-// Express Server Entry Point
-// TODO: Implement your Express server here
+/**
+ * Express Server Entry Point
+ * 
+ * X402 Payment Server with AI-powered content delivery
+ * Supports multiple payment tiers with real-time market analysis
+ * 
+ * @since 1.0.0
+ */
 
 import express from 'express';
 import dotenv from 'dotenv';

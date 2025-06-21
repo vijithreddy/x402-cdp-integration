@@ -15,7 +15,7 @@ import asyncio
 import json
 from cdp import CdpClient
 from src.client.core.custom_x402_client import CustomX402Client, CDPSigner
-from src.shared.config import get_cdp_config, get_server_url
+from src.shared.config import get_cdp_config, get_server_url, config as shared_config
 import inspect
 
 async def test_payment():
@@ -53,7 +53,7 @@ async def test_payment():
             
             # Create signer wrapper and X402 client
             signer = CDPSigner(account)
-            x402_client = CustomX402Client(signer)
+            x402_client = CustomX402Client(account, cdp, shared_config)
             
             print("\n💸 Sending X402 payment with custom client...")
             result = await x402_client.make_payment_request(

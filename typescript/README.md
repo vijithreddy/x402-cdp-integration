@@ -58,16 +58,13 @@ export const myCommand: CLICommand = {
     console.log('Wallet address:', context.walletManager.getAddress());
     
     // Add your custom logic here
-    // You can access:
-    // - context.walletManager for wallet operations
-    // - context.logger for structured logging
-    // - args for command arguments
+    // Access context.walletManager, context.logger, args
   }
 };
 ```
 
 ### 2. Register the Command
-Add your command to `src/client/core/commands.ts`:
+Add to `src/client/core/commands.ts`:
 
 ```typescript
 // Import your command
@@ -83,15 +80,6 @@ const commands: CLICommand[] = [
   myCommand,  // <-- Add your command here
   helpCommand
 ];
-```
-
-### 3. Test Your Command
-```bash
-npm run dev:client
-cdp-wallet> my-command test args
-🎉 My custom command executed!
-Arguments: ['test', 'args']
-Wallet address: 0xA35d0FD4a75b50F2Bc71c50a922C8215b9bBE308
 ```
 
 ## 💳 How to Add Your Own X402 Route
@@ -137,7 +125,7 @@ function myPremiumHandler(req: Request, res: Response): void {
       message: '🎉 MY PREMIUM CONTENT - Payment Verified!',
       data: {
         payment: {
-          amount: '0.05 USDC',  // Your custom price
+          amount: '0.05 USDC',
           type: 'MY_CUSTOM_PAYMENT'
         },
         content: premiumData,
@@ -161,7 +149,7 @@ export const myPremiumRoute: RouteDefinition = {
   method: 'get',
   handler: myPremiumHandler,
   requiresPayment: true,
-  price: '0.05 USDC',        // Your custom price
+  price: '0.05 USDC',
   network: 'base-sepolia',
   description: 'My custom premium content (0.05 USDC)'
 };
@@ -191,69 +179,69 @@ export const allRoutes: RouteDefinition[] = [
 - Handles payment verification
 - Your route handler just returns content
 
-### 3. Create a Client Command (Optional)
-Create `src/client/commands/x402/my-tier.ts`:
+## 🧪 Testing
 
-```typescript
-import type { CLICommand, CommandContext } from '../../types/commands';
-import { makeX402Request, formatPaymentResponse } from './index';
-
-export const myTierCommand: CLICommand = {
-  name: 'my-tier',
-  description: 'Test my custom premium content (0.05 USDC)',
-  usage: 'my-tier',
-  
-  async execute(args: string[], context: CommandContext): Promise<void> {
-    console.log('My Custom Premium Test');
-    console.log('Testing my premium endpoint');
-    console.log('=======================');
-    
-    try {
-      const response = await makeX402Request('/my-premium', context);
-      formatPaymentResponse(response, context);
-    } catch (error: any) {
-      console.error('❌ Payment failed:', error.message);
-    }
-  }
-};
-```
-
-### 4. Test Your Custom Route
+### Test Your Route
 ```bash
-# Start server (automatically picks up new route)
+# Start server
 npm run dev:server
 
-# In client
-cdp-wallet> my-tier
-
-My Custom Premium Test
-Testing my premium endpoint  
-=======================
-[PAYMENT_REQUIRED] Client: requesting content | Amount: 0.05 USDC
-[PAYMENT_VERIFIED] 0.05 USDC 0xA35d...E308 → server
-🎉 MY PREMIUM CONTENT - Payment Verified!
+# Test with curl
+curl http://localhost:5002/my-premium
 ```
 
-## 📋 Available Commands
+### Test with Client
+```bash
+# Start client
+npm run dev:client
 
-- `balance` - Check USDC balance
-- `fund [amount]` - Fund wallet with USDC
-- `info` - Show wallet information
-- `free` - Access free content
-- `tier1` - Premium content (0.01 USDC)
-- `tier2` - Premium+ content (0.1 USDC)
-- `tier3` - Enterprise content (1.0 USDC)
-- `help` - Show help
+# Add your command to test the route
+cdp-wallet> my-command
+```
 
-## 🔧 Development
+## 🔧 Key Features
+
+- **Express.js Integration**: Fast, unopinionated web framework
+- **X402 Middleware**: Automatic payment handling
+- **TypeScript Types**: Comprehensive type safety
+- **Configuration Management**: Centralized config from root config.yaml
+- **Error Handling**: Specific error types and fallback mechanisms
+- **AI Service Integration**: Real-time market data and AI analysis
+- **Health Checks**: Detailed health monitoring
+
+## 📊 Health Monitoring
 
 ```bash
+# Basic health check
+curl http://localhost:5002/health
+
+# Detailed health check
+curl http://localhost:5002/health/detailed
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+1. **TypeScript errors**: Ensure all types are properly defined
+2. **Port conflicts**: Check if port 5002 is available
+3. **Config issues**: Verify config.yaml exists and is valid
+4. **AI service**: Ensure AI server is running on port 8001
+
+### Debug Mode
+```bash
+# Set debug logging
+export LOG_LEVEL=DEBUG
+npm run dev:server
+```
+
+### Development
+```bash
+# Type check
+npm run type-check
+
 # Lint code
 npm run lint
 
-# Fix linting issues
-npm run lint:fix
-
-# Type check
-npx tsc --noEmit
+# Build
+npm run build
 ``` 

@@ -23,6 +23,35 @@ from typing import Dict, Any, Optional, Union
 from ...shared.utils.logger import logger
 from eth_utils import to_hex
 from cdp.openapi_client.models.eip712_domain import EIP712Domain
+import aiohttp
+import asyncio
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from ...shared.config import Config
+
+class X402Error(Exception):
+    """Base error class for X402 operations"""
+    def __init__(self, message: str, code: str = "X402_ERROR", status_code: int = 500, details: Optional[Dict] = None):
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+        self.details = details or {}
+        self.timestamp = time.time()
+
+class PaymentError(X402Error):
+    """Payment-specific errors"""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, "PAYMENT_ERROR", 402, details)
+
+class NetworkError(X402Error):
+    """Network and connection errors"""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, "NETWORK_ERROR", 503, details)
+
+class AIServiceError(X402Error):
+    """AI service errors"""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, "AI_SERVICE_ERROR", 503, details)
 
 class PaymentPayloadError(Exception):
     """Custom exception for payment payload creation errors"""
@@ -104,23 +133,27 @@ class CustomX402Client:
     integration, comprehensive error handling, and professional logging.
     """
     
-    def __init__(self, signer: CDPSigner):
-        """
-        Initialize custom X402 client
+    def __init__(self, cdp_account, cdp_client, config: Config):
+        self.cdp_account = cdp_account
+        self.cdp_client = cdp_client
+        self.config = config
         
-        Args:
-            signer: CDP signer wrapper for EIP-712 signing
-            
-        Raises:
-            ValueError: If signer is invalid
-        """
-        if not isinstance(signer, CDPSigner):
-            raise ValueError("Signer must be a CDPSigner instance")
-        
-        self.signer = signer
+        # Create session with retry strategy
         self.session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
         
-        logger.info(f"✅ Custom X402 client initialized with signer: {self.signer.address}")
+        # Get server config
+        server_config = config.get_server_config('python')
+        self.base_url = f"http://{server_config['host']}:{server_config['port']}"
+        
+        logger.debug(f"Initialized X402 client with base URL: {self.base_url}")
     
     def _create_authorization_types(self) -> Dict[str, Any]:
         """
@@ -192,7 +225,7 @@ class CustomX402Client:
         nonce = self._generate_nonce()
         
         return {
-            "from": self.signer.address,
+            "from": self.cdp_account.address,
             "to": recipient,
             "value": amount,
             "validAfter": "0",  # Set to 0 to eliminate race conditions entirely
@@ -223,7 +256,7 @@ class CustomX402Client:
         try:
             logger.debug(f"Signing data: {json.dumps({'domain': domain, 'message': authorization}, indent=2)}")
             
-            signature = await self.signer.sign_typed_data(
+            signature = await self.cdp_account.sign_typed_data(
                 domain=domain,
                 types=types,
                 primary_type="TransferWithAuthorization",
@@ -271,6 +304,23 @@ class CustomX402Client:
             payload["resource"] = resource
         
         return payload
+    
+    def _wei_to_usdc(self, wei_amount: str) -> str:
+        """
+        Convert wei amount to USDC for display
+        
+        Args:
+            wei_amount: Amount in wei as string
+            
+        Returns:
+            USDC amount as formatted string
+        """
+        try:
+            wei = int(wei_amount)
+            usdc = wei / 1_000_000  # 6 decimals for USDC
+            return f"{usdc:.6f}"
+        except (ValueError, TypeError):
+            return "0.000000"
     
     def _encode_payment_payload(self, payload: Dict[str, Any]) -> str:
         """
@@ -486,87 +536,289 @@ class CustomX402Client:
             logger.error(f"❌ Failed to send payment request: {e}")
             raise PaymentRequestError(f"Payment request failed: {e}")
     
-    async def make_payment_request(self, url: str, amount: str = "10000") -> Dict[str, Any]:
+    async def make_payment_request(self, url: str, amount: str = None) -> Dict[str, Any]:
         """
-        Make a payment request to a protected endpoint
-        
-        This method orchestrates the complete X402 payment flow:
-        1. Initial request to get payment requirements
-        2. Parse X402 response and extract requirements
-        3. Create payment payload with EIP-712 signature
-        4. Send payment request with X-PAYMENT header
-        5. Handle response and return result
+        Make a payment request to the specified URL
         
         Args:
-            url: The URL to request
-            amount: Payment amount in wei (default: 10000 = 0.01 USDC)
+            url: Target URL for the request
+            amount: Optional amount override
             
         Returns:
-            Dict containing the response data with success/error information
+            Dictionary with success status and response data
+        """
+        try:
+            logger.ui(f"🌐 Connecting to server: {url}")
+            logger.ui("⏳ Waiting for server response...")
+            
+            # Make initial request to get payment requirements
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    logger.ui(f"📡 Server response received (Status: {response.status})")
+                    
+                    if response.status == 402:
+                        # Payment required - extract payment details
+                        logger.ui("💰 Payment required - processing X402 payment flow")
+                        
+                        # Get payment details from response
+                        payment_data = await response.json()
+                        logger.ui("📋 Payment details extracted from server")
+                        
+                        # Extract payment requirements
+                        try:
+                            payment_requirements = self._extract_payment_requirements(payment_data)
+                            logger.ui("🔍 Payment requirements extracted")
+                        except Exception as e:
+                            logger.ui(f"❌ Failed to extract payment requirements: {e}")
+                            # Fallback to config values
+                            x402_config = self.config.get_x402_config()
+                            payment_requirements = {
+                                "scheme": x402_config.get("scheme", "exact"),
+                                "network": x402_config.get("network", "base-sepolia"),
+                                "amount": amount or "10000",
+                                "recipient": "0xe93cb61e3f327F344c09D5dFffE25fb0B0cFA65d",
+                                "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+                            }
+                        
+                        # Discover cost dynamically
+                        discovered_cost = payment_requirements.get('amount', amount or "10000")
+                        cost_usdc = "USDC"
+                        
+                        logger.ui(f"💰 Discovered cost: {discovered_cost} wei ({self._wei_to_usdc(discovered_cost)} {cost_usdc})")
+                        
+                        # Create payment payload
+                        logger.ui("🔐 Creating X402 payment payload...")
+                        x402_config = self.config.get_x402_config()
+                        payment_payload = await self._create_payment_payload(
+                            scheme=payment_requirements.get('scheme', x402_config.get("scheme", "exact")),
+                            network=payment_requirements.get('network', x402_config.get("network", "base-sepolia")),
+                            amount=discovered_cost,
+                            recipient=payment_requirements.get('recipient', '0xe93cb61e3f327F344c09D5dFffE25fb0B0cFA65d'),
+                            resource=payment_requirements.get('resource'),
+                            asset=payment_requirements.get('asset', '0x036CbD53842c5426634e7929541eC2318f3dCF7e'),
+                            extra=payment_requirements.get('extra')
+                        )
+                        
+                        # Send payment
+                        logger.ui("🚀 Sending X402 payment with X-PAYMENT header")
+                        logger.ui("⏳ Waiting for payment verification...")
+                        
+                        # Make payment request
+                        headers = {
+                            'X-PAYMENT': payment_payload,
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        async with session.get(url, headers=headers) as payment_response:
+                            logger.ui(f"✅ Payment response received (Status: {payment_response.status})")
+                            
+                            if payment_response.status == 200:
+                                # Payment successful
+                                logger.ui("✅ Payment successful!")
+                                response_data = await payment_response.json()
+                                return {
+                                    "success": True,
+                                    "data": response_data,
+                                    "cost": discovered_cost
+                                }
+                            else:
+                                # Payment failed
+                                error_text = await payment_response.text()
+                                logger.ui(f"❌ Payment failed with status {payment_response.status}")
+                                return {
+                                    "success": False,
+                                    "error": f"Payment failed: {payment_response.status}",
+                                    "details": error_text
+                                }
+                    else:
+                        # No payment required or other status
+                        response_text = await response.text()
+                        logger.ui(f"ℹ️  Server returned status {response.status} (no payment required)")
+                        return {
+                            "success": True,
+                            "data": {"message": "No payment required", "status": response.status},
+                            "raw_response": response_text
+                        }
+                        
+        except Exception as e:
+            logger.error(f"❌ Payment request failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    def _handle_request_error(self, error: Exception, context: str) -> X402Error:
+        """
+        Convert various exceptions to appropriate X402 error types.
+        
+        Args:
+            error: The original exception
+            context: Context string for logging
+            
+        Returns:
+            Appropriate X402 error instance
+        """
+        logger.error(f"Request failed in {context}", exc_info=error)
+        
+        if isinstance(error, requests.exceptions.ConnectionError):
+            return NetworkError(
+                f"Connection failed to {self.base_url}",
+                {"context": context, "base_url": self.base_url}
+            )
+        elif isinstance(error, requests.exceptions.Timeout):
+            return NetworkError(
+                f"Request timed out to {self.base_url}",
+                {"context": context, "timeout": "30s"}
+            )
+        elif isinstance(error, requests.exceptions.HTTPError):
+            if error.response.status_code == 402:
+                return PaymentError(
+                    "Payment required but validation failed",
+                    {"status_code": error.response.status_code, "response": error.response.text}
+                )
+            elif error.response.status_code >= 500:
+                return NetworkError(
+                    f"Server error: {error.response.status_code}",
+                    {"status_code": error.response.status_code, "response": error.response.text}
+                )
+            else:
+                return X402Error(
+                    f"HTTP error: {error.response.status_code}",
+                    "HTTP_ERROR",
+                    error.response.status_code,
+                    {"response": error.response.text}
+                )
+        else:
+            return X402Error(
+                f"Unexpected error: {str(error)}",
+                "UNKNOWN_ERROR",
+                500,
+                {"original_error": str(error)}
+            )
+    
+    def _log_payment_attempt(self, endpoint: str, payload: Dict[str, Any]):
+        """Log payment attempt details for debugging."""
+        logger.flow('payment_attempt', {
+            'endpoint': endpoint,
+            'amount': payload.get('amount'),
+            'recipient': payload.get('recipient'),
+            'network': payload.get('network')
+        })
+    
+    def _log_payment_success(self, endpoint: str, response_data: Dict[str, Any]):
+        """Log successful payment details."""
+        logger.flow('payment_success', {
+            'endpoint': endpoint,
+            'payment_verified': response_data.get('paymentVerified', False),
+            'content_tier': response_data.get('contentTier', 'unknown')
+        })
+    
+    def make_payment(self, endpoint: str, amount: str = "0") -> Dict[str, Any]:
+        """
+        Make a payment to the specified endpoint using X402 protocol.
+        
+        Args:
+            endpoint: API endpoint to call
+            amount: Payment amount (default "0" for dynamic discovery)
+            
+        Returns:
+            Response data from the server
             
         Raises:
-            PaymentRequestError: If payment flow fails
-            PaymentPayloadError: If payload creation fails
+            X402Error: For various payment and network errors
         """
-        logger.info(f"💸 Making payment request to: {url}")
-        logger.info(f"💰 Amount: {amount} wei (0.01 USDC)")
-        
         try:
-            # Step 1: Make initial request to get X402 payment requirements
-            logger.debug(f"Making initial request to: {url}")
-            response = self.session.get(url)
+            # Create payment payload
+            payload = self._create_payment_payload(amount)
+            url = f"{self.base_url}{endpoint}"
             
-            if response.status_code == 200:
-                logger.info("✅ Payment not required, request successful")
-                return {
-                    "success": True,
-                    "status_code": 200,
-                    "data": response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
-                }
+            self._log_payment_attempt(endpoint, payload)
             
-            if response.status_code != 402:
-                raise PaymentRequestError(f"Unexpected status code: {response.status_code}")
-            
-            logger.info("X402 payment required, processing payment flow")
-            logger.debug(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
-            logger.debug(f"Response body: {response.text}")
-            
-            # Step 2: Parse X402 payment requirements
-            x402_data = self._parse_x402_response(response)
-            payment_requirements = self._extract_payment_requirements(x402_data)
-            
-            # Step 3: Create payment payload
-            payment_payload = await self._create_payment_payload(
-                scheme=payment_requirements["scheme"],
-                network=payment_requirements["network"],
-                amount=amount,
-                recipient=payment_requirements["recipient"],
-                resource=payment_requirements["resource"],
-                asset=payment_requirements["asset"],
-                extra=payment_requirements["extra"]
+            # Make the request with X402 payment interceptor
+            response = self.session.post(
+                url,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Payment-Protocol": "x402"
+                },
+                timeout=60  # 60 second timeout for payment processing
             )
             
-            if not payment_payload:
-                raise PaymentPayloadError("Failed to create payment payload")
+            # Check for HTTP errors
+            response.raise_for_status()
             
-            # Step 4: Send payment with X-PAYMENT header
-            logger.info("Sending X402 payment with X-PAYMENT header")
-            return self._send_payment_request(url, payment_payload)
+            # Parse response
+            try:
+                response_data = response.json()
+            except json.JSONDecodeError as e:
+                raise X402Error(
+                    "Invalid JSON response from server",
+                    "RESPONSE_PARSE_ERROR",
+                    500,
+                    {"response_text": response.text, "json_error": str(e)}
+                )
             
-        except (PaymentRequestError, PaymentPayloadError, SignatureError) as e:
-            # Re-raise our custom exceptions
+            self._log_payment_success(endpoint, response_data)
+            
+            # Check for payment verification
+            if not response_data.get('paymentVerified', False):
+                raise PaymentError(
+                    "Payment verification failed",
+                    {"response": response_data}
+                )
+            
+            return response_data
+            
+        except requests.exceptions.RequestException as e:
+            raise self._handle_request_error(e, f"payment to {endpoint}")
+        except X402Error:
+            # Re-raise X402 errors as-is
             raise
         except Exception as e:
-            # Wrap unexpected errors
-            raise PaymentRequestError(f"Unexpected error in payment flow: {e}")
+            # Convert any other exceptions to X402 errors
+            raise X402Error(
+                f"Unexpected error during payment: {str(e)}",
+                "UNKNOWN_ERROR",
+                500,
+                {"endpoint": endpoint, "original_error": str(e)}
+            )
+    
+    def get_balance(self) -> str:
+        """
+        Get current USDC balance for the wallet.
+        
+        Returns:
+            Balance as string
+            
+        Raises:
+            X402Error: For network or wallet errors
+        """
+        try:
+            # This would typically call the CDP client to get balance
+            # For now, we'll return a placeholder
+            return "0.0"
+        except Exception as e:
+            raise X402Error(
+                f"Failed to get balance: {str(e)}",
+                "BALANCE_ERROR",
+                500,
+                {"original_error": str(e)}
+            )
+    
+    def close(self):
+        """Clean up resources."""
+        if self.session:
+            self.session.close()
 
-def create_x402_client(cdp_account, base_url: str = None) -> CustomX402Client:
+def create_x402_client(cdp_account, cdp_client, config: Config, base_url: str = None) -> CustomX402Client:
     """
     Factory function to create X402 client with CDP account
     
     Args:
         cdp_account: CDP account instance
+        cdp_client: CDP client instance
+        config: Configuration object
         base_url: Base URL for the server (defaults to config)
         
     Returns:
@@ -577,4 +829,4 @@ def create_x402_client(cdp_account, base_url: str = None) -> CustomX402Client:
         base_url = get_server_url()
     
     signer = CDPSigner(cdp_account)
-    return CustomX402Client(signer) 
+    return CustomX402Client(signer, cdp_client, config) 

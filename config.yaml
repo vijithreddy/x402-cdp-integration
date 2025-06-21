@@ -12,6 +12,12 @@ servers:
     port: 5002
     log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
     host: "localhost"
+    
+  ai:
+    port: 8001
+    log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+    host: "localhost"
+    use_ai_responses: true
 
 # X402 configuration
 x402:

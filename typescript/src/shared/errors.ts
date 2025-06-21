@@ -1,99 +1,242 @@
 /**
- * X402 Error Types and Utilities
+ * Comprehensive Error Handling System
  * 
- * Centralized error handling for the X402-CDP integration.
- * Makes error handling consistent across the application.
+ * Defines specific error types for different failure modes in the X402 system.
+ * Provides structured error handling with proper error codes and messages.
  */
 
 /**
- * Base error class for X402-related errors
+ * Base error class for X402 system
  */
-export class X402Error extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public status: number = 402,
-    public details?: any
-  ) {
+export class X402BaseError extends Error {
+  public readonly code: string;
+  public readonly statusCode: number;
+  public readonly details?: any;
+  public readonly timestamp: string;
+
+  constructor(code: string, message: string, statusCode: number = 500, details?: any) {
     super(message);
-    this.name = 'X402Error';
+    this.name = this.constructor.name;
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+    this.timestamp = new Date().toISOString();
   }
 }
 
 /**
- * Payment-specific errors
+ * AI Service specific errors
  */
-export class PaymentError extends X402Error {
+export class AIServiceError extends X402BaseError {
   constructor(message: string, details?: any) {
-    super(message, 'PAYMENT_ERROR', 402, details);
-    this.name = 'PaymentError';
+    super('AI_SERVICE_ERROR', message, 503, details);
   }
 }
 
-/**
- * Wallet-specific errors
- */
-export class WalletError extends X402Error {
+export class AIServiceTimeoutError extends X402BaseError {
+  constructor(timeout: number = 30000) {
+    super('AI_SERVICE_TIMEOUT', `AI service request timed out after ${timeout}ms`, 504, { timeout });
+  }
+}
+
+export class AIServiceUnavailableError extends X402BaseError {
+  constructor() {
+    super('AI_SERVICE_UNAVAILABLE', 'AI service is currently unavailable', 503);
+  }
+}
+
+export class AIMarketDataError extends X402BaseError {
   constructor(message: string, details?: any) {
-    super(message, 'WALLET_ERROR', 500, details);
-    this.name = 'WalletError';
+    super('AI_MARKET_DATA_ERROR', message, 503, details);
   }
 }
 
 /**
- * Network-specific errors
+ * Payment specific errors
  */
-export class NetworkError extends X402Error {
+export class PaymentError extends X402BaseError {
   constructor(message: string, details?: any) {
-    super(message, 'NETWORK_ERROR', 503, details);
-    this.name = 'NetworkError';
+    super('PAYMENT_ERROR', message, 402, details);
+  }
+}
+
+export class PaymentTimeoutError extends X402BaseError {
+  constructor(timeout: number = 60000) {
+    super('PAYMENT_TIMEOUT', `Payment request timed out after ${timeout}ms`, 408, { timeout });
+  }
+}
+
+export class PaymentValidationError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('PAYMENT_VALIDATION_ERROR', message, 400, details);
+  }
+}
+
+export class InsufficientBalanceError extends X402BaseError {
+  constructor(required: string, available: string) {
+    super('INSUFFICIENT_BALANCE', `Insufficient balance. Required: ${required}, Available: ${available}`, 402, { required, available });
   }
 }
 
 /**
- * Common error messages
+ * Configuration errors
  */
-export const ErrorMessages = {
-  PAYMENT: {
-    INSUFFICIENT_BALANCE: 'Insufficient USDC balance for payment',
-    PAYMENT_FAILED: 'Payment processing failed',
-    INVALID_PAYMENT: 'Invalid payment data received',
-    PAYMENT_TIMEOUT: 'Payment request timed out'
-  } as const,
-  WALLET: {
-    NOT_FOUND: 'Wallet not found',
-    INVALID_ADDRESS: 'Invalid wallet address',
-    LOAD_FAILED: 'Failed to load wallet data',
-    SAVE_FAILED: 'Failed to save wallet data'
-  } as const,
-  NETWORK: {
-    CONNECTION_FAILED: 'Failed to connect to network',
-    REQUEST_TIMEOUT: 'Network request timed out',
-    INVALID_RESPONSE: 'Invalid response from network'
-  } as const
-} as const;
+export class ConfigurationError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('CONFIGURATION_ERROR', message, 500, details);
+  }
+}
 
-type ErrorType = keyof typeof ErrorMessages;
-type ErrorCode<T extends ErrorType> = keyof typeof ErrorMessages[T];
+export class MissingEnvironmentError extends X402BaseError {
+  constructor(missingVars: string[]) {
+    super('MISSING_ENVIRONMENT', `Missing required environment variables: ${missingVars.join(', ')}`, 500, { missingVars });
+  }
+}
 
 /**
- * Helper function to create error objects
+ * Network and connection errors
  */
-export function createError<T extends ErrorType>(
-  type: T,
-  code: ErrorCode<T>,
-  details?: any
-): X402Error {
-  const message = ErrorMessages[type][code] as string;
-  
-  switch (type) {
-    case 'PAYMENT':
-      return new PaymentError(message, details);
-    case 'WALLET':
-      return new WalletError(message, details);
-    case 'NETWORK':
-      return new NetworkError(message, details);
-    default:
-      return new X402Error('An unknown error occurred', 'UNKNOWN_ERROR', 500, details);
+export class NetworkError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('NETWORK_ERROR', message, 503, details);
+  }
+}
+
+export class ConnectionRefusedError extends X402BaseError {
+  constructor(service: string, host: string, port: number) {
+    super('CONNECTION_REFUSED', `Connection refused to ${service} at ${host}:${port}`, 503, { service, host, port });
+  }
+}
+
+/**
+ * Wallet and CDP errors
+ */
+export class WalletError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('WALLET_ERROR', message, 500, details);
+  }
+}
+
+export class CDPError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('CDP_ERROR', message, 500, details);
+  }
+}
+
+/**
+ * Content and response errors
+ */
+export class ContentError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('CONTENT_ERROR', message, 500, details);
+  }
+}
+
+export class ResponseParseError extends X402BaseError {
+  constructor(message: string, details?: any) {
+    super('RESPONSE_PARSE_ERROR', message, 500, details);
+  }
+}
+
+/**
+ * Error factory for creating specific error types
+ */
+export class ErrorFactory {
+  /**
+   * Create AI service error based on the specific failure
+   */
+  static createAIServiceError(error: any): AIServiceError {
+    if (error.code === 'ECONNREFUSED') {
+      return new ConnectionRefusedError('AI Service', 'localhost', 8001);
+    }
+    if (error.code === 'ETIMEDOUT') {
+      return new AIServiceTimeoutError();
+    }
+    if (error.response?.status === 503) {
+      return new AIServiceUnavailableError();
+    }
+    return new AIServiceError(error.message || 'Unknown AI service error', error);
+  }
+
+  /**
+   * Create payment error based on the specific failure
+   */
+  static createPaymentError(error: any): PaymentError {
+    if (error.code === 'ETIMEDOUT') {
+      return new PaymentTimeoutError();
+    }
+    if (error.response?.status === 402) {
+      return new PaymentValidationError('Payment required but validation failed', error.response?.data);
+    }
+    return new PaymentError(error.message || 'Unknown payment error', error);
+  }
+
+  /**
+   * Create network error based on the specific failure
+   */
+  static createNetworkError(error: any): NetworkError {
+    if (error.code === 'ECONNREFUSED') {
+      return new ConnectionRefusedError('Server', 'localhost', 5002);
+    }
+    if (error.code === 'ENOTFOUND') {
+      return new NetworkError('Service not found', { code: error.code, hostname: error.hostname });
+    }
+    return new NetworkError(error.message || 'Unknown network error', error);
+  }
+}
+
+/**
+ * Error handler utility functions
+ */
+export class ErrorHandler {
+  /**
+   * Log error with appropriate level and context
+   */
+  static logError(error: X402BaseError, context?: any): void {
+    const logData = {
+      code: error.code,
+      message: error.message,
+      statusCode: error.statusCode,
+      timestamp: error.timestamp,
+      details: error.details,
+      context
+    };
+
+    if (error.statusCode >= 500) {
+      console.error('❌ System Error:', logData);
+    } else if (error.statusCode >= 400) {
+      console.warn('⚠️ Client Error:', logData);
+    } else {
+      console.info('ℹ️ Info:', logData);
+    }
+  }
+
+  /**
+   * Format error for user display
+   */
+  static formatForUser(error: X402BaseError): string {
+    const userMessages: Record<string, string> = {
+      'AI_SERVICE_UNAVAILABLE': '🤖 AI service is temporarily unavailable. Using fallback content.',
+      'AI_SERVICE_TIMEOUT': '⏰ AI service is taking longer than expected. Please try again.',
+      'INSUFFICIENT_BALANCE': '💰 Insufficient balance. Please fund your wallet.',
+      'PAYMENT_TIMEOUT': '⏰ Payment is taking longer than expected. Please try again.',
+      'CONNECTION_REFUSED': '🌐 Unable to connect to server. Please check if the server is running.',
+      'MISSING_ENVIRONMENT': '⚙️ Configuration error. Please check your environment setup.'
+    };
+
+    return userMessages[error.code] || `❌ ${error.message}`;
+  }
+
+  /**
+   * Check if error is retryable
+   */
+  static isRetryable(error: X402BaseError): boolean {
+    const retryableCodes = [
+      'AI_SERVICE_TIMEOUT',
+      'PAYMENT_TIMEOUT',
+      'NETWORK_ERROR',
+      'CONNECTION_REFUSED'
+    ];
+    return retryableCodes.includes(error.code);
   }
 } 

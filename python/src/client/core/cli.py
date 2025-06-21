@@ -10,14 +10,13 @@ from typing import Dict, Any
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.table import Table
-from src.shared.utils.logger import logger
-from src.shared.utils.wallet_manager import WalletManager
-from src.shared.config import get_server_url
+from ...shared.utils.logger import logger
+from ...shared.utils.wallet_manager import WalletManager
+from ...shared.config import get_server_url
 from .commands import CommandRegistry
 from .cdp_signer import get_cdp_local_account_sync
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..', 'src'))
 
 console = Console()
 
@@ -128,7 +127,7 @@ Type "help" for more details
     def do_tier1(self, arg):
         """X402 Basic Premium (~0.01 USDC)"""
         try:
-            from src.client.commands.x402.tier1 import tier1_command
+            from ..commands.x402.tier1 import tier1_command
             import asyncio
             
             console.print("🎯 X402 Basic Premium", style="cyan")
@@ -141,7 +140,7 @@ Type "help" for more details
     def do_tier2(self, arg):
         """X402 Premium Plus (~0.1 USDC)"""
         try:
-            from src.client.commands.x402.tier2 import tier2_command
+            from ..commands.x402.tier2 import tier2_command
             import asyncio
             
             console.print("🎯 X402 Premium Plus", style="cyan")
@@ -154,7 +153,7 @@ Type "help" for more details
     def do_tier3(self, arg):
         """X402 Enterprise (~1.0 USDC)"""
         try:
-            from src.client.commands.x402.tier3 import tier3_command
+            from ..commands.x402.tier3 import tier3_command
             import asyncio
             
             console.print("🎯 X402 Enterprise", style="cyan")
@@ -167,7 +166,7 @@ Type "help" for more details
     def do_free(self, arg):
         """Access free content"""
         try:
-            from src.client.commands.free import free_command
+            from ..commands.free import free_command
             import asyncio
             
             console.print("🎯 Accessing Free Content", style="cyan")
@@ -303,7 +302,7 @@ Type "help" for more details
         return super().onecmd(new_line)
 
 def main():
-    from src.shared.utils.wallet_manager import WalletManager
+    from ...shared.utils.wallet_manager import WalletManager
     import asyncio
     
     # Initialize wallet manager and get/create wallet

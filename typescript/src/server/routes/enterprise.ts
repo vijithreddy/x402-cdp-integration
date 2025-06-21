@@ -8,62 +8,74 @@
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
 import { getClientFromPayment } from '../utils/payment-parser';
+import { config } from '../../shared/config';
+import axios from 'axios';
+
+// AI Service configuration from centralized config
+const aiConfig = config.getAIServerConfig();
+const AI_SERVICE_URL = `http://${aiConfig.host}:${aiConfig.port}`;
+
+/**
+ * Call the AI service to generate content for the specified tier
+ */
+async function callAiService(tier: string, userPrompt: string = ''): Promise<any> {
+  try {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/generate/${tier}`,
+      { tier, user_prompt: userPrompt },
+      { timeout: 30000 }
+    );
+    return response.data;
+  } catch (error) {
+    console.warn(`AI service call failed for tier ${tier}:`, error);
+    return null;
+  }
+}
 
 /**
  * Generate enterprise content with institutional features
  */
-function generateEnterpriseContent() {
-  return {
-    institutionalData: {
-      whaleMovements: [
-        { address: '0x742d35cc6c1b78...', amount: '2.5M USDC', direction: 'buy' },
-        { address: '0x8e67b2a9c4f3d1...', amount: '1.8M USDC', direction: 'sell' }
-      ],
-      darkPoolActivity: {
-        volume24h: '$45.2M',
-        averageTradeSize: '$892K',
-        premiumToSpot: '+0.23%'
+async function generateEnterpriseContent() {
+  // Try to get real AI content first
+  const aiResponse = await callAiService('tier3');
+  
+  if (aiResponse && aiResponse.source === 'openai') {
+    // Use real AI content
+    return {
+      aiAnalysis: {
+        content: aiResponse.content,
+        source: 'openai',
+        tier: 'tier3'
       },
-      yieldOpportunities: [
-        { protocol: 'Aave V3', apy: '12.4%', tvl: '$2.1B', risk: 'low' },
-        { protocol: 'Compound III', apy: '8.9%', tvl: '$890M', risk: 'low' }
-      ]
-    },
-    advancedAI: {
-      sentiment: 'highly_bullish',
-      confidence: (Math.random() * 10 + 90).toFixed(1) + '%',
-      modelVersion: 'GPT-4o Advanced',
-      keywords: ['blockchain', 'defi', 'institutional', 'yield', 'arbitrage'],
-      summary: 'Institutional-grade AI analysis with 95%+ accuracy',
-      riskAssessment: {
-        score: (Math.random() * 2 + 8).toFixed(1) + '/10',
-        factors: ['market_volatility', 'liquidity_depth', 'regulatory_stability']
-      }
-    },
-    exclusiveFeatures: {
-      reportId: `ENTERPRISE-${Date.now()}`,
-      accessLevel: 'ENTERPRISE_TIER',
-      contentType: 'Institutional Analytics + Yield Strategies',
-      remainingCredits: Math.floor(Math.random() * 20 + 5),
-      personalizedInsights: [
-        '🏦 Institutional-grade portfolio optimization',
-        '📊 Real-time whale tracking and alerts',
-        '💎 Exclusive DeFi yield strategies (15%+ APY)',
-        '🎯 Arbitrage opportunities across 12 DEXs',
-        '⚡ Sub-100ms execution signals'
-      ]
-    }
-  };
+      marketData: aiResponse.market_data || {},
+      exclusiveContent: aiResponse.key_insights || [],
+      keyInsights: aiResponse.key_insights || [],
+      timestamp: aiResponse.timestamp || new Date().toISOString()
+    };
+  } else {
+    // Fallback to mock data (standardized)
+    return {
+      aiAnalysis: {
+        content: '# Market Analysis - Tier3\n\n**Status:** AI service temporarily unavailable\n\n**Fallback Analysis:** Institutional market conditions are being monitored.',
+        source: 'fallback',
+        tier: 'tier3'
+      },
+      marketData: {},
+      exclusiveContent: [],
+      keyInsights: [],
+      timestamp: new Date().toISOString()
+    };
+  }
 }
 
 /**
  * Enterprise content route handler
  */
-function enterpriseHandler(req: Request, res: Response): void {
+async function enterpriseHandler(req: Request, res: Response): Promise<void> {
   try {
     // At this point, payment is already verified by the middleware.
     // Just serve the enterprise content.
-    const enterpriseFeatures = generateEnterpriseContent();
+    const enterpriseFeatures = await generateEnterpriseContent();
     const clientAddress = getClientFromPayment(req);
 
     res.json({

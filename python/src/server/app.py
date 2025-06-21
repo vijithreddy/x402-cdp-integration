@@ -15,7 +15,7 @@ import logging
 # Import modular components
 from .config import wallet_config
 from .routes import content_router, health_router
-from .utils import create_error_response
+from .utils import ErrorHandler, X402ServerError
 from ..shared.utils.logger import logger
 from src.shared.config import config as shared_config
 
@@ -81,23 +81,27 @@ usdc_asset = TokenAsset(
     eip712=EIP712Domain(name="USDC", version="2"),
 )
 
+# Get X402 config for network
+x402_config = shared_config.get_x402_config()
+network_id = x402_config.get("network", "base-sepolia")
+
 app.middleware("http")(require_payment(
     path="/protected",
     price=TokenAmount(amount="10000", asset=usdc_asset),  # 0.01 USDC
     pay_to_address=wallet_config.get_receiving_address(),
-    network_id="base-sepolia"
+    network_id=network_id
 ))
 app.middleware("http")(require_payment(
     path="/premium",
     price=TokenAmount(amount="100000", asset=usdc_asset),  # 0.1 USDC
     pay_to_address=wallet_config.get_receiving_address(),
-    network_id="base-sepolia"
+    network_id=network_id
 ))
 app.middleware("http")(require_payment(
     path="/enterprise",
     price=TokenAmount(amount="1000000", asset=usdc_asset),  # 1.0 USDC
     pay_to_address=wallet_config.get_receiving_address(),
-    network_id="base-sepolia"
+    network_id=network_id
 ))
 
 # Include route modules
@@ -109,11 +113,20 @@ app.include_router(health_router, tags=["health"])
 async def global_exception_handler(request: Request, exc: Exception):
     """Handle unhandled exceptions"""
     logger.error(f"❌ Unhandled exception: {exc}")
-    return create_error_response(
+    
+    # Create a server error using the new error handling system
+    server_error = X402ServerError(
+        message="Internal server error",
+        code="INTERNAL_ERROR",
         status_code=500,
-        error_message="Internal server error",
-        details={"type": type(exc).__name__}
+        details={"type": type(exc).__name__, "exception": str(exc)}
     )
+    
+    # Log the error
+    ErrorHandler.log_error(server_error, {"request_path": str(request.url)})
+    
+    # Return the error response
+    return ErrorHandler.create_error_response(server_error)
 
 # Root endpoint
 @app.get("/")

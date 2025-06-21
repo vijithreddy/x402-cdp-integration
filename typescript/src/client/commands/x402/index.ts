@@ -124,7 +124,30 @@ export async function createX402Client(context: CommandContext) {
  */
 export function displayPremiumContent(response: any, endpointConfig: X402EndpointConfig): void {
   if (!response.data) return;
+
+  // Check for fallback AI response - look in the correct nested structure
+  const data = response.data.data || response.data;
+  const features = data?.premiumFeatures || data?.premiumPlusFeatures || data?.enterpriseFeatures || data?.features || data;
+  const aiAnalysis = features?.aiAnalysis || features?.ai_analysis || features?.ai_models || features?.aiModels || features;
   
+  if (aiAnalysis && aiAnalysis.source === 'fallback') {
+    logger.ui('\n⚠️  AI service is currently unavailable. Displaying fallback analysis.');
+    logger.ui(aiAnalysis.content);
+    return;
+  }
+
+  // If we have real AI content, display it
+  if (aiAnalysis && aiAnalysis.source === 'openai' && aiAnalysis.content) {
+    logger.ui(`\n${endpointConfig.tierName.toUpperCase()} CONTENT ACCESSED`);
+    logger.ui('═══════════════════════════════════════════════════════════');
+    logger.ui('✅ PAYMENT VERIFIED - Access Granted to ' + endpointConfig.tierName);
+    logger.ui('🤖 AI-POWERED ANALYSIS:');
+    logger.ui('═══════════════════════════════════════════════════════════');
+    logger.ui(aiAnalysis.content);
+    logger.ui('═══════════════════════════════════════════════════════════');
+    return;
+  }
+
   logger.ui(`\n${endpointConfig.tierName.toUpperCase()} CONTENT ACCESSED`);
   logger.ui('═══════════════════════════════════════════════════════════');
   
@@ -141,7 +164,6 @@ export function displayPremiumContent(response: any, endpointConfig: X402Endpoin
     logger.ui(`   ${response.data.subtitle}`);
   }
   
-  const data = response.data.data;
   if (!data) return;
   
   // Payment Information

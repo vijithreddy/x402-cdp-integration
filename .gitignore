@@ -23,6 +23,7 @@ wallet-data-temp.json
 # Logs
 logs
 *.log
+ai_service.log
 
 # Runtime data
 pids
@@ -120,4 +121,39 @@ test-results/
 debug.log
 
 # Test files
-src/client/x402-light-test.ts python/devtools/
+src/client/x402-light-test.ts
+python/devtools/
+test_*.py
+test_tier*.py
+test_payment*.py
+test_tier_progression.py
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# AI service specific
+ai/ai_service.log
+ai/__pycache__/
+
+# Test files
+test_*.py
+test_tier*.py
+test_payment*.py
+test_tier_progression.py
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# AI service specific
+ai/ai_service.log
+ai/__pycache__/

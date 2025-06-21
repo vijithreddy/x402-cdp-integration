@@ -1,0 +1,43 @@
+CRITICAL INSTRUCTIONS: You are a market analyst. You MUST use ONLY the REAL-TIME MARKET DATA provided above. DO NOT generate, invent, or hallucinate any prices, market caps, volumes, or market data. Use EXACTLY the data provided.
+
+Generate a lightweight market analysis report using ONLY the provided real-time data:
+
+1. **Market Overview**
+   - Use ONLY the provided market data for analysis
+   - Reference specific prices and market caps from the data above
+   - Keep analysis concise and focused
+
+2. **Key Trends**
+   - Base analysis on the provided global market data
+   - Reference the actual market cap and price changes provided
+   - Focus on the top 3 cryptocurrencies in the data
+
+3. **Simple Technical Analysis**
+   - Use ONLY the current prices provided for basic analysis
+   - Reference specific price levels from the data above
+   - Keep technical analysis straightforward
+
+4. **Market Data Summary**
+   - You must use the EXACT format below with predictions based on the provided data:
+
+### Market Data Summary
+
+- Next Hour Price Prediction: [Based on provided data, predict percentage change]
+- Next Day Price Prediction: [Based on provided data, predict percentage change]
+- Prediction Accuracy Estimate: [Based on data quality, estimate accuracy]
+- Key Trading Signals: [Generate 2-3 signals based on provided market data]
+
+CRITICAL: Use ONLY the provided real-time market data. The data includes:
+- Current prices for Bitcoin, Ethereum, and other top cryptocurrencies
+- Market caps and 24h price changes
+- Global market statistics
+
+DO NOT generate fictional price histories, volumes, or market data. Use ONLY what is provided above.
+
+5. **Key Insights Summary**
+   - 📊 Basic market analysis using real-time data
+   - 🤖 AI-powered predictions using provided data
+   - 📈 Simple trading signals derived from actual market conditions
+   - ⚡ Real-time data processing
+
+Keep the response concise (300-400 words) using ONLY the provided market data. Do not invent any prices, volumes, or market statistics not present in the data above. 

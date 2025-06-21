@@ -10,7 +10,7 @@ import json
 from cdp import CdpClient
 from src.shared.utils.logger import logger
 from src.shared.utils.wallet_manager import WalletManager
-from src.shared.config import get_cdp_config, get_server_url
+from src.shared.config import get_cdp_config, get_server_url, config as shared_config
 from src.client.commands.x402 import (
     X402_ENDPOINTS, 
     validate_balance_for_x402, 
@@ -61,7 +61,7 @@ async def tier1_command(wallet_manager: WalletManager):
             
             # Create signer wrapper and X402 client
             signer = CDPSigner(account)
-            x402_client = CustomX402Client(signer)
+            x402_client = CustomX402Client(account, cdp, shared_config)
             
             # Make request to protected endpoint
             logger.ui(f"💸 Making X402 payment to {config.tier_name}...")

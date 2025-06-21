@@ -4,8 +4,8 @@ click
 python-dotenv
 rich
 typer
-pydantic
-fastapi
+pydantic>=2.10.3,<=2.10.4
+fastapi>=0.115.12
 uvicorn[standard]
 requests
 x402

@@ -1,336 +1,172 @@
-# X402 Payment System - Interactive Developer Playground
+# X402 CDP Integration
 
-A **X402 micropayment system** with modular architecture, comprehensive logging, and tiered payment system. Perfect for learning X402 integration or building payment-protected content APIs.
+A comprehensive integration of the X402 payment protocol with Coinbase Developer Platform (CDP), featuring both Python and TypeScript implementations with AI-powered content generation.
 
-**Supports both Python and TypeScript implementations** with identical functionality and clean, professional logging.
+## 🚀 Quick Start
 
-## 🚀 **Quick Start**
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.10+
+- OpenAI API key (for AI features)
+- CDP API credentials (for wallet operations)
 
+### Setup
 ```bash
-# 1. Clone the repository
-git clone git@github.com:vijithreddy/x402-cdp-integration.git
-cd x402-cdp-integration
+# Install dependencies and setup environment
+npm run setup
 
-# 2. Setup environment (.env file)
-cp .env-example .env
-# Edit .env with your CDP API credentials:
-# CDP_API_KEY_ID=your_api_key_id
-# CDP_API_KEY_SECRET=your_api_key_secret
-# CDP_WALLET_SECRET=your_wallet_secret
-
-# 3. Copy .env to language folders and install dependencies
-npm run setup          # Copies .env to typescript/ and python/
-npm run setup:ts       # Install TypeScript dependencies
-npm run setup:py       # Install Python dependencies
-
-# 4. (Optional) Setup wallets for testing
-cd typescript && npm run setup  # Creates and funds test wallets
-
-# 5. Start testing X402 payments
-# Choose your preferred language:
-
-# TypeScript:
-npm run ts:server  # Terminal 1: TypeScript payment server
-npm run ts:client  # Terminal 2: TypeScript interactive CLI
-
-# Python:
-npm run py:server  # Terminal 1: Python payment server  
-npm run py:client  # Terminal 2: Python interactive CLI
+# This will:
+# - Install TypeScript dependencies
+# - Install Python dependencies  
+# - Install AI service dependencies
+# - Copy OpenAI keys to AI service
 ```
 
-## ⚙️ **Configuration**
+### Running the Services
 
-The project uses a centralized `config.yaml` file at the root level to manage server and client configurations:
+**Start all services together:**
+```bash
+npm run dev
+```
 
-### **Server Configuration**
+**Or start services individually:**
+
+1. **AI Server** (required for AI content):
+   ```bash
+   npm run ai:server
+   ```
+
+2. **TypeScript Server**:
+   ```bash
+   npm run ts:server
+   ```
+
+3. **Python Server**:
+   ```bash
+   npm run py:server
+   ```
+
+4. **TypeScript Client**:
+   ```bash
+   npm run ts:client
+   ```
+
+5. **Python Client**:
+   ```bash
+   npm run py:client
+   ```
+
+## 🧪 Testing
+
+### Test X402 Payments
+```bash
+# TypeScript client
+npm run ts:client
+# Then run: tier1, tier2, tier3
+
+# Python client
+npm run py:client  
+# Then run: tier1, tier2, tier3
+```
+
+## 🏗️ Architecture
+
+### Services
+- **AI Service** (Port 8001): Python FastAPI microservice for AI content generation
+- **TypeScript Server** (Port 5002): Express.js server with X402 middleware
+- **Python Server** (Port 5001): FastAPI server with X402 middleware
+
+### Features
+- **X402 Payment Integration**: Dynamic payment discovery and processing
+- **AI-Powered Content**: Real-time market analysis using OpenAI models
+- **Market Data**: Live cryptocurrency data from CoinGecko APIs
+- **Multi-Tier Content**: Free, Tier1, Tier2, and Tier3 content levels
+- **Comprehensive Error Handling**: Specific error types and fallback mechanisms
+- **Health Checks**: Detailed health monitoring for all services
+
+## 🔧 Configuration
+
+All configuration is centralized in `config.yaml`:
+
 ```yaml
 servers:
   python:
+    host: localhost
     port: 5001
-    log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-    host: "localhost"
-    
+    log_level: info
   typescript:
+    host: localhost
     port: 5002
-    log_level: "INFO"
-    host: "localhost"
-```
+    log_level: info
+  ai:
+    host: localhost
+    port: 8001
+    log_level: info
+    use_ai_responses: true
 
-### **Client Configuration**
-```yaml
 clients:
   python:
-    log_level: "INFO"
+    log_level: info
     verbose: false
-    
   typescript:
-    log_level: "INFO"
+    log_level: info
     verbose: false
-```
 
-### **X402 Configuration**
-```yaml
 x402:
-  facilitator_url: "https://x402.org/facilitator"
-  network: "base-sepolia"
-  scheme: "exact"
+  facilitator_url: https://x402.fun
+  network: base-sepolia
+  scheme: usdc
 ```
 
-### **Running Servers with Config**
+## 📊 Health Monitoring
+
+### Health Checks
 ```bash
-# Python server (uses config.yaml)
-npm run py:server
+# AI Service
+curl http://localhost:8001/health
 
-# TypeScript server (uses config.yaml)
-npm run ts:server
+# TypeScript Server
+curl http://localhost:5002/health
+
+# Python Server
+curl http://localhost:5001/health
 ```
 
-## 🎮 **Interactive CLI Features**
+## 🛠️ Development
 
-### **Three-Tier Payment System**
-Test different pricing models and content quality levels:
-
-| Command | Cost | Content Type | Features |
-|---------|------|--------------|----------|
-| `free` | **FREE** | Public content | Basic data, 15-min delays, limited features |
-| `tier1` | **0.01 USDC** | Basic premium | Real-time AI analysis, market predictions |
-| `tier2` | **0.1 USDC** | Premium Plus | Institutional-grade analytics, whale tracking |
-| `tier3` | **1.0 USDC** | Enterprise | Custom insights, sub-millisecond data, compliance |
-
-### **Wallet Management Commands**
-| Command | Description | Example |
-|---------|-------------|---------|
-| `balance` / `bal` | Check USDC balance | `💰 Current USDC balance: 4.75 USDC` |
-| `fund [amount]` | Add USDC from faucet | `✅ Funding operation completed!` |
-| `info` / `status` | Show wallet info | Address, balance, session status |
-| `refresh` / `reload` | Force refresh from blockchain | Updates cached balance |
-
-### **Utility Commands**
-| Command | Description |
-|---------|-------------|
-| `help` / `h` | Show all available commands |
-| `clear` / `cls` | Clear the screen |
-| `exit` / `quit` / `q` | Exit CLI with cleanup |
-
-## 📊 **Server Logging Examples**
-
-### **Clean, Professional Output**
-Both Python and TypeScript servers provide identical, clean logging:
-
-```bash
-# Free content access
-🔄 2025-06-20T21:42:43.801Z [FLOW] free_content_accessed
-{
-  "client": "public",
-  "endpoint": "/free",
-  "cost": "FREE",
-  "tier": "PUBLIC"
-}
-
-# Basic premium payment flow
-🔄 2025-06-20T21:42:48.194Z [FLOW] payment_required
-{
-  "client": "requesting Basic",
-  "endpoint": "/protected",
-  "amount": "0.01 USDC"
-}
-ℹ️  2025-06-20T21:42:49.088Z [INFO] Payment verified
-{
-  "amount": "0.01 USDC",
-  "from": "0xA35d...E308",
-  "to": "server",
-  "status": "success"
-}
-🔄 2025-06-20T21:42:49.088Z [FLOW] content_delivered
-{
-  "client": "0xA35d...E308",
-  "status": "Success"
-}
-
-# Premium Plus payment flow  
-🔄 2025-06-20T21:42:55.194Z [FLOW] payment_required
-{
-  "client": "requesting Premium Plus",
-  "endpoint": "/premium",
-  "amount": "0.1 USDC"
-}
-ℹ️  2025-06-20T21:42:56.088Z [INFO] Payment verified
-{
-  "amount": "0.1 USDC",
-  "from": "0xA35d...E308",
-  "to": "server",
-  "status": "success"
-}
-🔄 2025-06-20T21:42:56.088Z [FLOW] content_delivered
-{
-  "client": "0xA35d...E308",
-  "status": "Success"
-}
-
-# Enterprise payment flow
-🔄 2025-06-20T21:43:05.194Z [FLOW] payment_required
-{
-  "client": "requesting Enterprise",
-  "endpoint": "/enterprise",
-  "amount": "1.0 USDC"
-}
-ℹ️  2025-06-20T21:43:06.088Z [INFO] Payment verified
-{
-  "amount": "1.0 USDC",
-  "from": "0xA35d...E308",
-  "to": "server",
-  "status": "success"
-}
-🔄 2025-06-20T21:43:06.088Z [FLOW] content_delivered
-{
-  "client": "0xA35d...E308",
-  "status": "Success"
-}
-```
-
-## 🏗️ **Modular Architecture**
-
-### **🎯 Key Architectural Decision: Centralized X402 Middleware**
-
-**No per-route middleware needed!** We use a **centralized approach**:
-
-```python
-# Python: ONE middleware handles ALL payment routes
-app.middleware("http")(require_payment(
-    path="/protected",
-    price=TokenAmount(amount="10000", asset=usdc_asset),
-    pay_to_address=wallet_config.get_receiving_address(),
-    network_id="base-sepolia"
-))
-```
-
-```typescript
-// TypeScript: ONE middleware handles ALL payment routes
-app.use(paymentMiddleware(serverWallet, routeConfigs, facilitator));
-```
-
-**Benefits:**
-- 🚀 **Simple route handlers** - Just return content, no payment code
-- 🔧 **Auto-configuration** - Payment setup derived from route definitions  
-- 📊 **Consistent logging** - All payments tracked the same way
-- 🛠️ **Easy maintenance** - One place to update payment logic
-
-### **Python Architecture**
-```
-python/
-├── run_server.py              # Server runner with config support
-├── src/
-│   ├── server/
-│   │   ├── app.py             # Main FastAPI app with X402 middleware
-│   │   ├── routes/
-│   │   │   ├── content.py     # Rich content endpoints (protected, premium, enterprise)
-│   │   │   └── health.py      # Health check endpoint
-│   │   ├── config/
-│   │   │   └── wallet.py      # Wallet configuration
-│   │   └── utils/
-│   │       └── response.py    # Response utilities
-│   ├── client/
-│   │   ├── core/
-│   │   │   ├── cli.py         # Main CLI with session management
-│   │   │   ├── commands.py    # Command registry and router
-│   │   │   ├── cdp_signer.py  # CDP account wrapper
-│   │   │   └── custom_x402_client.py  # X402 client for CDP integration
-│   │   └── commands/
-│   │       ├── x402/
-│   │       │   ├── __init__.py # Shared utilities & config
-│   │       │   ├── tier1.py    # Basic Premium (0.01 USDC)
-│   │       │   ├── tier2.py    # Premium Plus (0.1 USDC)
-│   │       │   └── tier3.py    # Enterprise (1.0 USDC)
-│   │       ├── balance.py      # Wallet balance checking
-│   │       ├── fund.py         # Faucet funding
-│   │       └── info.py         # Wallet information
-│   └── shared/
-│       ├── config.py           # Centralized configuration
-│       └── utils/
-│           ├── logger.py       # Professional logging utilities
-│           └── wallet_manager.py # Wallet management
-```
-
-### **TypeScript Architecture**
-```
-typescript/src/
-├── client/
-│   ├── index.ts               # Clean entry point
-│   ├── core/
-│   │   ├── cli.ts             # Main CLI class with session management  
-│   │   └── commands.ts        # Command registry and router
-│   ├── commands/
-│   │   ├── balance.ts         # Wallet balance checking
-│   │   ├── fund.ts            # Faucet funding
-│   │   ├── info.ts            # Wallet information
-│   │   ├── free.ts            # Free content test
-│   │   ├── help.ts            # Command help system
-│   │   └── x402/              # Modular X402 payment system
-│   │       ├── index.ts       # Shared utilities & config
-│   │       ├── types.ts       # TypeScript interfaces
-│   │       ├── tier1.ts       # Basic Premium (0.01 USDC)
-│   │       ├── tier2.ts       # Premium Plus (0.1 USDC)
-│   │       └── tier3.ts       # Enterprise (1.0 USDC)
-│   ├── types/
-│   │   └── commands.ts        # CLI command interfaces
-│   └── utils/
-│       └── display.ts         # Output formatting utilities
-└── server/
-    ├── index.ts               # Main server with proper imports
-    ├── routes/
-    │   ├── index.ts           # Route registry with auto-discovery
-    │   ├── health.ts          # Health check endpoint
-    │   ├── free.ts            # Free content endpoint
-    │   ├── protected.ts       # Basic premium (0.01 USDC)
-    │   ├── premium-plus.ts    # Premium Plus (0.1 USDC)
-    │   └── enterprise.ts      # Enterprise (1.0 USDC)
-    ├── middleware/
-    │   ├── logging.ts         # Professional request/response logging
-    │   └── security.ts        # Security headers & validation
-    └── utils/
-        └── payment-parser.ts  # X402 payment header parsing
-```
-
-## 🏗️ **Monorepo Structure**
-
+### Project Structure
 ```
 x402-cdp-integration/
-├── .env                    # Shared environment variables
-├── .env-example           # Environment template
-├── package.json           # Root scripts and metadata
-├── typescript/            # TypeScript implementation
-│   ├── package.json
-│   ├── src/
-│   │   ├── client/        # Interactive CLI
-│   │   ├── server/        # Payment server
-│   │   └── shared/        # Shared utilities
-│   └── setup.ts           # Wallet setup script
-└── python/                # Python implementation (coming soon)
-    ├── requirements.txt
-    └── src/
-        ├── client/
-        ├── server/
-        └── shared/
+├── ai/                    # AI microservice (Python FastAPI)
+├── typescript/           # TypeScript client & server
+├── python/              # Python client & server
+├── scripts/             # Setup and utility scripts
+├── config.yaml          # Centralized configuration
+└── package.json         # NPM scripts and dependencies
 ```
 
-## 📦 **Available Commands**
+### Key Features
+- **X402 Protocol**: Full payment integration with CDP SDK v2 compatibility
+- **AI Integration**: Real-time market data and AI-powered content generation
+- **Error Handling**: Specific error types for different failure modes
+- **Health Checks**: Component-level status and diagnostics
+- **TypeScript Types**: Comprehensive interfaces for all responses
 
-### **Root Level (from x402-cdp-integration/)**
+## 🔍 Troubleshooting
+
+### AI Server Issues
+If `npm run ai:server` fails, run directly:
 ```bash
-npm run setup          # Copy .env to language folders
-npm run setup:ts       # Install TypeScript dependencies
-npm run setup:py       # Install Python dependencies
-npm run ts:client      # Start TypeScript CLI
-npm run ts:server      # Start TypeScript server
-npm run ts:setup       # Setup TypeScript wallets
+cd ai && python3 main.py
 ```
 
-### **TypeScript (from typescript/)**
-```bash
-npm run setup          # Create and fund test wallets
-npm run dev:client     # Start interactive CLI
-npm run dev:server     # Start payment server
-npm run build          # Build TypeScript code
-npm run test           # Run tests
-```
+### Common Issues
+1. **Port conflicts**: Check if ports 5001, 5002, 8001 are available
+2. **OpenAI API**: Ensure OPENAI_API_KEY is set in ai/.env
+3. **CDP credentials**: Verify CDP API key and secret are configured
+4. **Architecture issues**: On Apple Silicon Macs, reinstall pydantic if needed
+
+## 📝 License
+
+MIT License - see LICENSE file for details.
 

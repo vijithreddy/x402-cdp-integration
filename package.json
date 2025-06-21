@@ -7,16 +7,31 @@
     "npm": ">=8.0.0"
   },
   "scripts": {
-    "setup": "node -e \"const fs = require('fs'); fs.copyFileSync('.env', 'typescript/.env'); fs.copyFileSync('.env', 'python/.env'); console.log('✅ .env files copied to language folders')\"",
+    "setup": "node scripts/setup.js",
     "setup:ts": "cd typescript && npm install",
     "py:setup": "cd python && python3 setup.py",
+    "ai:setup": "cd ai && python3 -m pip install -r requirements.txt",
+    "ai:server": "cd ai && python3 main.py",
     "ts:client": "cd typescript && npm run dev:client",
     "ts:server": "cd typescript && npm run dev:server",
     "ts:setup": "cd typescript && npm run setup",
     "py:client": "PYTHONPATH=python python3 -m src.client.core.cli",
-    "py:server": "cd python && python3 run_server.py"
+    "py:server": "cd python && python3 run_server.py",
+    "start:all": "concurrently \"npm run ts:server\" \"npm run py:server\"",
+    "dev": "concurrently \"npm run ts:server\" \"npm run py:server\"",
+    "test": "echo \"Run individual language tests: npm run test:ts or npm run test:py\"",
+    "test:ts": "cd typescript && npm test",
+    "test:py": "cd python && python -m pytest",
+    "clean": "rm -rf node_modules typescript/node_modules python/__pycache__ ai/__pycache__",
+    "lint": "echo \"Run individual language lints: npm run lint:ts or npm run lint:py\"",
+    "lint:ts": "cd typescript && npm run lint",
+    "lint:py": "cd python && python -m flake8 src/"
   },
   "keywords": ["x402", "cdp", "coinbase", "payment"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "dotenv": "^16.3.1"
+  }
 } 

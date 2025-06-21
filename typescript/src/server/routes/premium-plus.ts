@@ -8,48 +8,74 @@
 import type { Request, Response } from 'express';
 import type { RouteDefinition } from './health';
 import { getClientFromPayment } from '../utils/payment-parser';
+import { config } from '../../shared/config';
+import axios from 'axios';
+
+// AI Service configuration from centralized config
+const aiConfig = config.getAIServerConfig();
+const AI_SERVICE_URL = `http://${aiConfig.host}:${aiConfig.port}`;
+
+/**
+ * Call the AI service to generate content for the specified tier
+ */
+async function callAiService(tier: string, userPrompt: string = ''): Promise<any> {
+  try {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/generate/${tier}`,
+      { tier, user_prompt: userPrompt },
+      { timeout: 30000 }
+    );
+    return response.data;
+  } catch (error) {
+    console.warn(`AI service call failed for tier ${tier}:`, error);
+    return null;
+  }
+}
 
 /**
  * Generate premium plus content with advanced AI models
  */
-function generatePremiumPlusContent() {
-  return {
-    aiModels: {
-      sentiment: Math.random() > 0.5 ? 'very_positive' : 'extremely_bullish',
-      confidence: (Math.random() * 20 + 80).toFixed(1) + '%',
-      keywords: ['blockchain', 'payments', 'web3', 'fintech', 'defi', 'nft'],
-      summary: 'Advanced AI analysis with deep learning models'
-    },
-    marketData: {
-      priceHistory: Array.from({length: 10}, (_, i) => ({
-        timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-        price: (Math.random() * 100 + 2000).toFixed(2),
-        volume: Math.floor(Math.random() * 1000000)
-      })),
-      predictiveModel: {
-        nextHour: '+' + (Math.random() * 5).toFixed(2) + '%',
-        nextDay: '+' + (Math.random() * 10).toFixed(2) + '%',
-        accuracy: '92.5%',
-        signals: ['bullish_momentum', 'volume_surge', 'institutional_interest']
-      }
-    },
-    exclusiveContent: {
-      reportId: `PREMIUM-PLUS-${Date.now()}`,
-      accessLevel: 'PLATINUM_TIER',
-      contentType: 'Advanced Analytics + AI Insights',
-      remainingCredits: Math.floor(Math.random() * 100 + 50)
-    }
-  };
+async function generatePremiumPlusContent() {
+  // Try to get real AI content first
+  const aiResponse = await callAiService('tier2');
+  
+  if (aiResponse && aiResponse.source === 'openai') {
+    // Use real AI content
+    return {
+      aiAnalysis: {
+        content: aiResponse.content,
+        source: 'openai',
+        tier: 'tier2'
+      },
+      marketData: aiResponse.market_data || {},
+      exclusiveContent: aiResponse.key_insights || [],
+      keyInsights: aiResponse.key_insights || [],
+      timestamp: aiResponse.timestamp || new Date().toISOString()
+    };
+  } else {
+    // Fallback to mock data (standardized)
+    return {
+      aiAnalysis: {
+        content: '# Market Analysis - Tier2\n\n**Status:** AI service temporarily unavailable\n\n**Fallback Analysis:** Advanced market conditions are being monitored.',
+        source: 'fallback',
+        tier: 'tier2'
+      },
+      marketData: {},
+      exclusiveContent: [],
+      keyInsights: [],
+      timestamp: new Date().toISOString()
+    };
+  }
 }
 
 /**
  * Premium plus content route handler
  */
-function premiumPlusHandler(req: Request, res: Response): void {
+async function premiumPlusHandler(req: Request, res: Response): Promise<void> {
   try {
     // At this point, payment is already verified by the middleware.
     // Just serve the premium plus content.
-    const premiumPlusFeatures = generatePremiumPlusContent();
+    const premiumPlusFeatures = await generatePremiumPlusContent();
     const clientAddress = getClientFromPayment(req);
 
     res.json({

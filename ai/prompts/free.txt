@@ -1,0 +1,32 @@
+Generate a basic market overview report for cryptocurrency markets. Include:
+
+1. **Basic Market Overview**
+   - Current market sentiment (neutral, bullish, bearish)
+   - Total market cap and basic 24h change
+   - Simple market summary
+
+2. **Top Cryptocurrencies**
+   - Top 3 cryptocurrencies by market cap
+   - Basic 24h price changes
+   - Simple market commentary
+
+3. **Basic Market Trends**
+   - General market direction
+   - Simple sector overview
+   - Basic market dynamics
+
+4. **Basic Outlook**
+   - Simple short-term outlook
+   - Basic market factors to watch
+
+5. **Market Data Summary**
+   - Basic next hour prediction (neutral)
+   - Basic accuracy estimate (50-60%)
+   - Simple signals (market_trend, basic_volume)
+
+6. **Key Insights Summary**
+   - 3-4 basic bullet points
+   - Focus on fundamental market overview
+   - Include upgrade message to premium tiers
+
+Keep the response concise (200-250 words) with basic market insights. Format the Market Data Summary and Key Insights Summary as separate sections at the end. 

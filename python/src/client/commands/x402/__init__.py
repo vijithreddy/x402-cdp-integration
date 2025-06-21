@@ -4,7 +4,7 @@ X402 Commands Module
 Shared utilities and configurations for X402 payment commands.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from src.shared.utils.logger import logger
 from src.shared.utils.wallet_manager import WalletManager
@@ -122,7 +122,7 @@ async def create_x402_client(wallet_manager: WalletManager, wallet_address: str)
 
 def display_premium_content(response_data: Dict[str, Any], config: X402EndpointConfig):
     """
-    Display premium content response in a formatted way
+    Display premium content response in a professional market analysis report format with tables
     
     Args:
         response_data: Response data from the server
@@ -131,122 +131,250 @@ def display_premium_content(response_data: Dict[str, Any], config: X402EndpointC
     if not response_data:
         return
     
-    logger.ui(f"\n{config.tier_name.upper()} CONTENT ACCESSED")
-    logger.ui("═══════════════════════════════════════════════════════════")
+    # Header
+    print("\n" + "=" * 100)
+    print(f"📊 {config.tier_name.upper()} MARKET ANALYSIS REPORT")
+    print("=" * 100)
     
     # Payment verification status
     if response_data.get('paymentVerified'):
-        logger.ui(f"✅ PAYMENT VERIFIED - Access Granted to {config.tier_name}")
+        print(f"✅ Payment Verified - Access Granted to {config.tier_name}")
+        print()
     
     if response_data.get('message'):
-        logger.ui(f"📢 {response_data['message']}")
-    
-    if response_data.get('subtitle'):
-        logger.ui(f"   {response_data['subtitle']}")
+        print(f"📢 {response_data['message']}")
+        print()
     
     # Display rich content from data field
     if response_data.get('data'):
         data = response_data['data']
         
-        # Payment details
+        # Payment details (if available)
         if data.get('payment'):
             payment = data['payment']
-            logger.ui(f"\n💳 Payment Details:")
-            logger.ui(f"   Amount: {payment.get('amount', 'N/A')}")
-            logger.ui(f"   Paid By: {payment.get('paidBy', 'N/A')}")
-            logger.ui(f"   Transaction: {payment.get('transactionType', 'N/A')}")
+            print_table("PAYMENT DETAILS", [
+                ["Amount", payment.get('amount', 'N/A')],
+                ["Paid By", payment.get('paidBy', 'N/A')],
+                ["Transaction", payment.get('transactionType', 'N/A')]
+            ])
         
-        # AI Analysis (for protected/premium tiers)
-        if data.get('premiumFeatures', {}).get('aiAnalysis'):
-            ai = data['premiumFeatures']['aiAnalysis']
-            logger.ui(f"\n🤖 AI Analysis:")
-            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
-            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
-            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
-            if ai.get('keywords'):
-                logger.ui(f"   Keywords: {', '.join(ai['keywords'])}")
+        # Get features data (now standardized across all tiers)
+        features_data = data.get('features')
         
-        # AI Models (for premium tier)
-        if data.get('premiumPlusFeatures', {}).get('aiModels'):
-            ai = data['premiumPlusFeatures']['aiModels']
-            logger.ui(f"\n🤖 Advanced AI Models:")
-            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
-            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
-            logger.ui(f"   Model: {ai.get('modelVersion', 'N/A')}")
-            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
-            if ai.get('keywords'):
-                logger.ui(f"   Keywords: {', '.join(ai['keywords'])}")
+        # AI Analysis (for all tiers)
+        if features_data:
+            # Handle different AI structures
+            ai_data = None
+            if features_data.get('aiAnalysis'):
+                ai_data = features_data['aiAnalysis']
+            elif features_data.get('aiModels'):
+                ai_data = features_data['aiModels']
+            elif features_data.get('advancedAI'):
+                ai_data = features_data['advancedAI']
+            elif features_data.get('basicAnalysis'):
+                ai_data = features_data['basicAnalysis']
+            
+            if ai_data:
+                print_table("AI ANALYSIS", [
+                    ["Source", ai_data.get('source', 'N/A')],
+                    ["Tier", ai_data.get('tier', config.tier)],
+                    ["Sentiment", ai_data.get('sentiment', 'N/A')],
+                    ["Confidence", ai_data.get('confidence', 'N/A')]
+                ])
+                
+                if ai_data.get('content'):
+                    # Parse and format the AI content professionally
+                    format_ai_content_tabular(ai_data['content'])
+                elif ai_data.get('summary'):
+                    print("📋 ANALYSIS SUMMARY")
+                    print("-" * 80)
+                    print(f"   {ai_data['summary']}")
+                    print()
         
-        # Advanced AI (for enterprise tier)
-        if data.get('enterpriseFeatures', {}).get('advancedAI'):
-            ai = data['enterpriseFeatures']['advancedAI']
-            logger.ui(f"\n🏛️ Institutional AI:")
-            logger.ui(f"   Sentiment: {ai.get('sentiment', 'N/A')}")
-            logger.ui(f"   Confidence: {ai.get('confidence', 'N/A')}")
-            logger.ui(f"   Model: {ai.get('modelVersion', 'N/A')}")
-            logger.ui(f"   Summary: {ai.get('summary', 'N/A')}")
-            if ai.get('riskAssessment'):
-                risk = ai['riskAssessment']
-                logger.ui(f"   Risk Score: {risk.get('score', 'N/A')}")
-        
-        # Market Data
+        # Market Data (AI-Generated)
         market_data = None
-        if data.get('premiumFeatures', {}).get('marketData'):
-            market_data = data['premiumFeatures']['marketData']
-        elif data.get('premiumPlusFeatures', {}).get('marketData'):
-            market_data = data['premiumPlusFeatures']['marketData']
+        if features_data and features_data.get('marketData'):
+            market_data = features_data['marketData']
+        elif data.get('marketData'):
+            market_data = data['marketData']
         
         if market_data:
-            logger.ui(f"\n📊 Market Data:")
             if market_data.get('predictiveModel'):
                 model = market_data['predictiveModel']
-                logger.ui(f"   Next Hour: {model.get('nextHour', 'N/A')}")
+                table_data = [
+                    ["Next Hour", model.get('nextHour', 'N/A')],
+                    ["Accuracy", model.get('accuracy', 'N/A')]
+                ]
+                
                 if model.get('nextDay'):
-                    logger.ui(f"   Next Day: {model.get('nextDay', 'N/A')}")
-                logger.ui(f"   Accuracy: {model.get('accuracy', 'N/A')}")
-                if model.get('signals'):
-                    logger.ui(f"   Signals: {', '.join(model['signals'])}")
+                    table_data.append(["Next Day", model.get('nextDay', 'N/A')])
+                
+                signals = model.get('signals', [])
+                if signals:
+                    table_data.append(["Signals", ', '.join(signals)])
+                else:
+                    table_data.append(["Signals", "None available"])
+                
+                print_table("MARKET DATA (AI-GENERATED)", table_data)
+                print("   ℹ️  Note: Market data is AI-generated from real-time analysis")
+                print()
         
-        # Institutional Data (for enterprise tier)
-        if data.get('enterpriseFeatures', {}).get('institutionalData'):
-            inst = data['enterpriseFeatures']['institutionalData']
-            logger.ui(f"\n🏦 Institutional Data:")
-            if inst.get('whaleMovements'):
-                logger.ui(f"   Whale Movements: {len(inst['whaleMovements'])} tracked")
-            if inst.get('darkPoolActivity'):
-                dark = inst['darkPoolActivity']
-                logger.ui(f"   Dark Pool Volume: {dark.get('volume24h', 'N/A')}")
-            if inst.get('yieldOpportunities'):
-                logger.ui(f"   Yield Opportunities: {len(inst['yieldOpportunities'])} available")
+        # Key Insights
+        key_insights = None
+        if features_data and features_data.get('keyInsights'):
+            key_insights = features_data['keyInsights']
+        elif data.get('keyInsights'):
+            key_insights = data['keyInsights']
+        elif data.get('insights'):
+            key_insights = data['insights']
         
-        # Access information
-        if data.get('access'):
-            access = data['access']
-            logger.ui(f"\n🎫 Access Information:")
-            logger.ui(f"   Level: {access.get('accessLevel', 'N/A')}")
-            logger.ui(f"   Valid Until: {access.get('validUntil', 'N/A')}")
-            logger.ui(f"   API Calls Remaining: {access.get('apiCallsRemaining', 'N/A')}")
+        if key_insights:
+            print("💡 KEY INSIGHTS (AI-GENERATED)")
+            print("-" * 80)
+            for i, insight in enumerate(key_insights, 1):
+                print(f"   {i:2d}. {insight}")
+            print()
         
-        # Insights
-        if data.get('insights'):
-            logger.ui(f"\n💡 Key Insights:")
-            for insight in data['insights']:
-                logger.ui(f"   {insight}")
+        # Exclusive Content
+        exclusive_content = None
+        if features_data and features_data.get('exclusiveContent'):
+            exclusive_content = features_data['exclusiveContent']
+        elif features_data and features_data.get('exclusiveFeatures'):
+            exclusive_content = features_data['exclusiveFeatures']
+        elif features_data and features_data.get('basicFeatures'):
+            exclusive_content = features_data['basicFeatures']
         
-        # Developer information
-        if data.get('developer'):
-            dev = data['developer']
-            logger.ui(f"\n🔧 Developer Info:")
-            logger.ui(f"   Implementation: {dev.get('implementation', 'N/A')}")
-            logger.ui(f"   Cost: {dev.get('cost', 'N/A')}")
-            logger.ui(f"   Billing: {dev.get('billing', 'N/A')}")
+        if exclusive_content:
+            print_table("EXCLUSIVE CONTENT", [
+                ["Report ID", exclusive_content.get('reportId', 'N/A')],
+                ["Access Level", exclusive_content.get('accessLevel', 'N/A')],
+                ["Content Type", exclusive_content.get('contentType', 'N/A')],
+                ["Remaining Credits", exclusive_content.get('remainingCredits', 'N/A')]
+            ])
+        
+        # Footer with actual timestamp
+        print("=" * 100)
+        report_timestamp = data.get('timestamp', 'N/A')
+        if report_timestamp != 'N/A':
+            # Format timestamp for display
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(report_timestamp.replace('Z', '+00:00'))
+                formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                print(f"📅 Report generated at: {formatted_time}")
+            except:
+                print(f"📅 Report generated at: {report_timestamp}")
+        else:
+            print(f"📅 Report generated at: {report_timestamp}")
+        print(f"🔗 Data source: {config.tier_name} AI Analysis")
+        print("=" * 100)
+
+
+def print_table(title: str, data: List[List[str]]):
+    """
+    Print a formatted table with title and data
     
-    # Display tier information (fallback for old format)
-    if response_data.get('tier'):
-        logger.ui(f"\n🎫 Access Level: {response_data['tier']}")
+    Args:
+        title: Table title
+        data: List of [key, value] pairs
+    """
+    print(f"\n{title}")
+    print("-" * 80)
+    max_key_length = max(len(row[0]) for row in data) if data else 0
     
-    if response_data.get('description'):
-        logger.ui(f"📋 {response_data['description']}")
+    for key, value in data:
+        print(f"{key:<{max_key_length + 5}} {value}")
+    print()
+
+
+def format_ai_content_tabular(content: str):
+    """
+    Format AI content into a professional tabular report structure
+    
+    Args:
+        content: Raw AI content string
+    """
+    lines = content.split('\n')
+    current_section = None
+    section_data = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Handle section headers
+        if line.startswith('### '):
+            # Print previous section if exists
+            if current_section and section_data:
+                print_section_table(current_section, section_data)
+                section_data = []
+            
+            current_section = line.replace('### ', '').strip()
+            continue
+        
+        # Handle key-value pairs
+        if '**' in line and ':**' in line:
+            parts = line.split(':**')
+            if len(parts) == 2:
+                key = parts[0].replace('**', '').strip()
+                value = parts[1].strip()
+                section_data.append([key, value])
+                continue
+        
+        # Handle bullet points
+        if line.startswith('- ') or line.startswith('• '):
+            bullet = line[2:].strip()
+            section_data.append(["•", bullet])
+            continue
+        
+        # Handle numbered lists
+        if line.startswith('1. ') or line.startswith('2. ') or line.startswith('3. ') or line.startswith('4. ') or line.startswith('5. '):
+            section_data.append(["", line])
+            continue
+        
+        # Handle regular content (paragraphs)
+        if line and not line.startswith('###') and not line.startswith('**') and not line.startswith('-') and not line.startswith('•'):
+            # For paragraphs, add as description
+            if len(line) > 80:
+                # Wrap long lines
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    if len(current_line + word) > 80:
+                        section_data.append(["", current_line])
+                        current_line = word
+                    else:
+                        current_line += " " + word if current_line else word
+                if current_line:
+                    section_data.append(["", current_line])
+            else:
+                section_data.append(["", line])
+    
+    # Print final section
+    if current_section and section_data:
+        print_section_table(current_section, section_data)
+
+
+def print_section_table(section_name: str, data: List[List[str]]):
+    """
+    Print a section as a formatted table
+    
+    Args:
+        section_name: Name of the section
+        data: List of [key, value] pairs
+    """
+    print(f"\n📋 {section_name.upper()}")
+    print("-" * 80)
+    
+    for key, value in data:
+        if key == "•":
+            print(f"   • {value}")
+        elif key == "":
+            print(f"   {value}")
+        else:
+            print(f"   {key}: {value}")
+    print()
 
 
 def handle_x402_error(error: Exception, config: X402EndpointConfig):

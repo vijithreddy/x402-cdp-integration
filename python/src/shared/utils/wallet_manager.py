@@ -6,7 +6,7 @@ import os
 import asyncio
 from typing import Optional, Dict, Any
 from cdp import CdpClient
-from ..config import get_cdp_config, get_wallet_config
+from ..config import get_cdp_config, get_wallet_config, config as shared_config
 from .logger import logger
 
 class WalletManager:
@@ -115,8 +115,12 @@ class WalletManager:
             async with await self._get_client() as cdp:
                 account = await cdp.evm.get_or_create_account(name=self.account['name'])
                 
+                # Get network from config
+                x402_config = shared_config.get_x402_config()
+                network = x402_config.get("network", "base-sepolia")
+                
                 # Get token balances
-                balance_result = await account.list_token_balances(network="base-sepolia")
+                balance_result = await account.list_token_balances(network=network)
                 
                 # Find USDC balance
                 for balance in balance_result.balances:

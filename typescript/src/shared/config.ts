@@ -15,6 +15,10 @@ export interface ServerConfig {
   host: string;
 }
 
+export interface AIServerConfig extends ServerConfig {
+  use_ai_responses: boolean;
+}
+
 export interface ClientConfig {
   log_level: string;
   verbose: boolean;
@@ -30,6 +34,7 @@ export interface AppConfig {
   servers: {
     python: ServerConfig;
     typescript: ServerConfig;
+    ai: AIServerConfig;
   };
   clients: {
     python: ClientConfig;
@@ -63,8 +68,12 @@ export class Config {
     return yaml.load(configContent) as AppConfig;
   }
 
-  getServerConfig(serverType: 'python' | 'typescript' = 'typescript'): ServerConfig {
+  getServerConfig(serverType: 'python' | 'typescript' | 'ai' = 'typescript'): ServerConfig {
     return this.config.servers[serverType];
+  }
+
+  getAIServerConfig(): AIServerConfig {
+    return this.config.servers.ai;
   }
 
   getClientConfig(clientType: 'python' | 'typescript' = 'typescript'): ClientConfig {
